@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="bootconfig.c" />
+    <ClCompile Include="loader.c" />
+    <ClCompile Include="main.c" />
+    <ClCompile Include="print.c" />
+    <ClCompile Include="serial.c" />
+    <MASM Include="arch_amd64.asm" />
+    <ClCompile Include="compiler.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="arch.h" />
+    <ClInclude Include="bootconfig.h" />
+    <ClInclude Include="loader.h" />
+    <ClInclude Include="print.h" />
+    <ClInclude Include="serial.h" />
+    <ClInclude Include="types.h" />
+    <ClInclude Include="compiler.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
+  </ItemGroup>
+</Project>
