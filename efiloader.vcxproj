@@ -87,6 +87,8 @@
     <ClInclude Include="types.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".github\dependabot.yml" />
+    <None Include=".github\workflows\build.yml" />
     <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

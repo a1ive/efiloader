@@ -1,0 +1,50 @@
+name: MSBuild
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "master"
+    tags:
+      - "*"
+
+permissions:
+  contents: read
+
+env:
+  # Path to the project file relative to the root of the project.
+  SOLUTION_FILE_PATH: .
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Run git checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v3
+
+      - name: Build
+        working-directory: ${{env.GITHUB_WORKSPACE}}
+        run: |
+          msbuild /m /p:Configuration=Release /p:platform=x64 ${{env.SOLUTION_FILE_PATH}}
+
+      - name: Prepare Package
+        shell: pwsh
+        run: |
+          $packageDir = 'PKG'
+          New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
+          Copy-Item -LiteralPath 'x64\Release\efiloader.efi' -Destination "$packageDir\efiloader.efi" -Force
+          Copy-Item -LiteralPath 'add_menu.bat' -Destination "$packageDir\add_menu.bat" -Force
+          Copy-Item -LiteralPath 'LICENSE' -Destination "$packageDir\LICENSE" -Force
+
+      - name: Upload Application
+        uses: actions/upload-artifact@v6
+        with:
+          name: efiloader
+          path: PKG/
+          if-no-files-found: error

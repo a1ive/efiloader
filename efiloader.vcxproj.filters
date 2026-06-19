@@ -19,6 +19,16 @@
     <ClInclude Include="compiler.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="README.md" />
+    <Filter Include="GitHub">
+      <UniqueIdentifier>{01993920-b5f1-4361-81c9-cdd70de695a9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md">
+      <Filter>GitHub</Filter>
+    </None>
+    <None Include=".github\workflows\build.yml">
+      <Filter>GitHub</Filter>
+    </None>
   </ItemGroup>
 </Project>
