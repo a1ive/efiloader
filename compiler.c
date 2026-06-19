@@ -38,6 +38,30 @@ VOID* memcpy(VOID* Destination, const VOID* Source, UINTN Size)
 	return Destination;
 }
 
+#pragma function(memcmp)
+
+int memcmp(const VOID* First, const VOID* Second, UINTN Count)
+{
+	const UINT8* FirstBytes;
+	const UINT8* SecondBytes;
+
+	FirstBytes = (const UINT8*)First;
+	SecondBytes = (const UINT8*)Second;
+	while (Count != 0)
+	{
+		if (*FirstBytes != *SecondBytes)
+		{
+			return (int)*FirstBytes - (int)*SecondBytes;
+		}
+
+		FirstBytes++;
+		SecondBytes++;
+		Count--;
+	}
+
+	return 0;
+}
+
 #pragma function(memset)
 
 VOID* memset(VOID* Destination, int Value, UINTN Count)
@@ -53,4 +77,24 @@ VOID* memset(VOID* Destination, int Value, UINTN Count)
 		Count--;
 	}
 	return Destination;
+}
+
+#pragma function(wcslen)
+
+UINTN wcslen(CHAR16* String)
+{
+	UINTN Length;
+
+	Length = 0;
+	if (String == NULL)
+	{
+		return 0;
+	}
+
+	while (String[Length] != 0)
+	{
+		Length++;
+	}
+
+	return Length;
 }

@@ -21,9 +21,9 @@
 #include "compiler.h"
 #include "print.h"
 
-#define DEVICE_PATH_NODE_LENGTH(CharCount) (sizeof(EFI_DEVICE_PATH_PROTOCOL) + ((CharCount) * sizeof(CHAR16)))
-#define DEVICE_PATH_LENGTH_LOW(Length) ((UINT8)((Length) & 0xFF))
-#define DEVICE_PATH_LENGTH_HIGH(Length) ((UINT8)(((Length) >> 8) & 0xFF))
+#define DEVICE_PATH_MAX_NODES 1024
+#define DEVICE_PATH_MAX_SCAN_SIZE (1024ULL * 1024ULL)
+#define PXE_MAX_IMAGE_SIZE (256ULL * 1024ULL * 1024ULL)
 
 static EFI_GUID gEfiLoadedImageProtocolGuid =
 {
@@ -49,270 +49,399 @@ static EFI_GUID gEfiPxeBaseCodeProtocolGuid =
 	{ 0x9A, 0x2D, 0x00, 0x90, 0x27, 0x3F, 0xC1, 0x4D }
 };
 
-#define PXE_MAX_IMAGE_SIZE (64ULL * 1024ULL * 1024ULL)
-
-typedef struct _EFI_PXE_BASE_CODE_PROTOCOL EFI_PXE_BASE_CODE_PROTOCOL;
-
-typedef struct _EFI_PXE_BASE_CODE_DHCPV4_PACKET
-{
-	UINT8 BootpOpcode;
-	UINT8 BootpHwType;
-	UINT8 BootpHwAddrLen;
-	UINT8 BootpGateHops;
-	UINT32 BootpIdent;
-	UINT16 BootpSeconds;
-	UINT16 BootpFlags;
-	UINT8 BootpCiAddr[4];
-	UINT8 BootpYiAddr[4];
-	UINT8 BootpSiAddr[4];
-	UINT8 BootpGiAddr[4];
-	UINT8 BootpHwAddr[16];
-	UINT8 BootpSrvName[64];
-	UINT8 BootpBootFile[128];
-	UINT32 DhcpMagik;
-	UINT8 DhcpOptions[56];
-} EFI_PXE_BASE_CODE_DHCPV4_PACKET;
-
-typedef union _EFI_PXE_BASE_CODE_PACKET
-{
-	UINT8 Raw[1472];
-	EFI_PXE_BASE_CODE_DHCPV4_PACKET Dhcpv4;
-} EFI_PXE_BASE_CODE_PACKET;
-
-typedef struct _EFI_PXE_BASE_CODE_MODE
-{
-	BOOLEAN Started;
-	BOOLEAN Ipv6Available;
-	BOOLEAN Ipv6Supported;
-	BOOLEAN UsingIpv6;
-	BOOLEAN BisSupported;
-	BOOLEAN BisDetected;
-	BOOLEAN AutoArp;
-	BOOLEAN SendGUID;
-	BOOLEAN DhcpDiscoverValid;
-	BOOLEAN DhcpAckReceived;
-	BOOLEAN ProxyOfferReceived;
-	BOOLEAN PxeDiscoverValid;
-	BOOLEAN PxeReplyReceived;
-	BOOLEAN PxeBisReplyReceived;
-	BOOLEAN IcmpErrorReceived;
-	BOOLEAN TftpErrorReceived;
-	BOOLEAN MakeCallbacks;
-	UINT8 TTL;
-	UINT8 ToS;
-	EFI_IP_ADDRESS StationIp;
-	EFI_IP_ADDRESS SubnetMask;
-	EFI_PXE_BASE_CODE_PACKET DhcpDiscover;
-	EFI_PXE_BASE_CODE_PACKET DhcpAck;
-	EFI_PXE_BASE_CODE_PACKET ProxyOffer;
-	EFI_PXE_BASE_CODE_PACKET PxeDiscover;
-	EFI_PXE_BASE_CODE_PACKET PxeReply;
-	EFI_PXE_BASE_CODE_PACKET PxeBisReply;
-} EFI_PXE_BASE_CODE_MODE;
-
-typedef enum _EFI_PXE_BASE_CODE_TFTP_OPCODE
-{
-	EFI_PXE_BASE_CODE_TFTP_FIRST,
-	EFI_PXE_BASE_CODE_TFTP_GET_FILE_SIZE,
-	EFI_PXE_BASE_CODE_TFTP_READ_FILE,
-	EFI_PXE_BASE_CODE_TFTP_WRITE_FILE,
-	EFI_PXE_BASE_CODE_TFTP_READ_DIRECTORY,
-	EFI_PXE_BASE_CODE_MTFTP_GET_FILE_SIZE,
-	EFI_PXE_BASE_CODE_MTFTP_READ_FILE,
-	EFI_PXE_BASE_CODE_MTFTP_READ_DIRECTORY,
-	EFI_PXE_BASE_CODE_MTFTP_LAST
-} EFI_PXE_BASE_CODE_TFTP_OPCODE;
-
-typedef EFI_STATUS (*EFI_PXE_BASE_CODE_START)(
-	EFI_PXE_BASE_CODE_PROTOCOL* This,
-	BOOLEAN UseIpv6);
-
-typedef EFI_STATUS (*EFI_PXE_BASE_CODE_DHCP)(
-	EFI_PXE_BASE_CODE_PROTOCOL* This,
-	BOOLEAN SortOffers);
-
-typedef EFI_STATUS (*EFI_PXE_BASE_CODE_MTFTP)(
-	EFI_PXE_BASE_CODE_PROTOCOL* This,
-	EFI_PXE_BASE_CODE_TFTP_OPCODE Operation,
-	VOID* BufferPtr,
-	BOOLEAN Overwrite,
-	UINT64* BufferSize,
-	UINTN* BlockSize,
-	EFI_IP_ADDRESS* ServerIp,
-	UINT8* Filename,
-	VOID* Info,
-	BOOLEAN DontUseBuffer);
-
-struct _EFI_PXE_BASE_CODE_PROTOCOL
-{
-	UINT64 Revision;
-	EFI_PXE_BASE_CODE_START Start;
-	VOID* Stop;
-	EFI_PXE_BASE_CODE_DHCP Dhcp;
-	VOID* Discover;
-	EFI_PXE_BASE_CODE_MTFTP Mtftp;
-	VOID* UdpWrite;
-	VOID* UdpRead;
-	VOID* SetIpFilter;
-	VOID* Arp;
-	VOID* SetParameters;
-	VOID* SetStationIp;
-	VOID* SetPackets;
-	EFI_PXE_BASE_CODE_MODE* Mode;
-};
-
-C_ASSERT(sizeof(EFI_PXE_BASE_CODE_DHCPV4_PACKET) == 296);
-C_ASSERT(sizeof(EFI_PXE_BASE_CODE_PACKET) == 1472);
-C_ASSERT(FIELD_OFFSET(EFI_PXE_BASE_CODE_MODE, DhcpAck) == 1524);
-
-static UINT8 gRelativeImageDevicePath[
-	sizeof(EFI_DEVICE_PATH_PROTOCOL) +
-	((MAX_PATH + 1) * sizeof(CHAR16)) +
-	sizeof(EFI_DEVICE_PATH_PROTOCOL)];
-static UINT8 gFullImageDevicePath[1024];
-static UINT8 gPxeFileName[MAX_PATH];
-
-static inline VOID PrintEfiCallStatus(CHAR16* Name, EFI_STATUS Status)
+static inline VOID PrintEfiCallStatus(const CHAR16* Name, EFI_STATUS Status)
 {
 	SerialPrint(L"%s status=0x%016llX\n", Name, (UINT64)Status);
 }
 
-static EFI_STATUS GetParentLoadedImage(
-	EFI_BOOT_SERVICES* BootServices,
-	EFI_HANDLE ParentHandle,
-	EFI_LOADED_IMAGE_PROTOCOL** LoadedImage)
+static inline UINTN DevicePathNodeLength(EFI_DEVICE_PATH_PROTOCOL* Node)
 {
-	EFI_STATUS EfiStatus;
+	return ((UINTN)Node->Length[0]) | (((UINTN)Node->Length[1]) << 8);
+}
 
-	*LoadedImage = NULL;
-	EfiStatus = BootServices->HandleProtocol(ParentHandle, &gEfiLoadedImageProtocolGuid, (VOID**)LoadedImage);
-	PrintEfiCallStatus(L"HandleProtocol(LoadedImage)", EfiStatus);
-	SerialPrint(L"LoadedImage=%p\n", (VOID*)*LoadedImage);
-	if (EFI_ERROR(EfiStatus))
-	{
-		return EfiStatus;
-	}
+static inline VOID SetDevicePathNodeLength(EFI_DEVICE_PATH_PROTOCOL* Node, UINTN Length)
+{
+	Node->Length[0] = (UINT8)(Length & 0xFF);
+	Node->Length[1] = (UINT8)((Length >> 8) & 0xFF);
+}
 
-	if (*LoadedImage == NULL)
+static inline EFI_DEVICE_PATH_PROTOCOL* NextDevicePathNode(EFI_DEVICE_PATH_PROTOCOL* Node)
+{
+	return (EFI_DEVICE_PATH_PROTOCOL*)((UINT8*)Node + DevicePathNodeLength(Node));
+}
+
+static inline BOOLEAN IsDevicePathEnd(EFI_DEVICE_PATH_PROTOCOL* Node)
+{
+	return (((Node->Type & EFI_DP_TYPE_MASK) == END_DEVICE_PATH_TYPE) &&
+		(Node->SubType == END_ENTIRE_DEVICE_PATH_SUBTYPE));
+}
+
+static inline VOID SetDevicePathEndNode(EFI_DEVICE_PATH_PROTOCOL* Node)
+{
+	Node->Type = END_DEVICE_PATH_TYPE;
+	Node->SubType = END_ENTIRE_DEVICE_PATH_SUBTYPE;
+	Node->Length[0] = (UINT8)END_DEVICE_PATH_LENGTH;
+	Node->Length[1] = 0;
+}
+
+static EFI_STATUS LoaderAllocatePool(UINTN Size, VOID** Buffer)
+{
+	EFI_STATUS Status;
+
+	if (Buffer == NULL)
 	{
 		return EFI_STATUS_INVALID_PARAMETER;
 	}
 
+	*Buffer = NULL;
+	if (Size == 0)
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
+
+	Status = gContext.BootServices->AllocatePool(EfiLoaderData, Size, Buffer);
+	if (!EFI_ERROR(Status) && (*Buffer == NULL))
+	{
+		return EFI_STATUS_OUT_OF_RESOURCES;
+	}
+
+	return Status;
+}
+
+static EFI_STATUS LoaderAllocateZeroPool(UINTN Size, VOID** Buffer)
+{
+	EFI_STATUS Status;
+
+	Status = LoaderAllocatePool(Size, Buffer);
+	if (!EFI_ERROR(Status))
+	{
+		memset(*Buffer, 0, Size);
+	}
+
+	return Status;
+}
+
+static VOID LoaderFreePool(VOID* Buffer)
+{
+	if (Buffer != NULL)
+	{
+		gContext.BootServices->FreePool(Buffer);
+	}
+}
+
+static EFI_STATUS GetDevicePathSize(EFI_DEVICE_PATH_PROTOCOL* DevicePath, UINTN* DevicePathSize)
+{
+	EFI_DEVICE_PATH_PROTOCOL* Node;
+	UINTN NodeLength;
+	UINTN NodeCount;
+	UINTN TotalSize;
+
+	if ((DevicePath == NULL) || (DevicePathSize == NULL))
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
+
+	Node = DevicePath;
+	NodeCount = 0;
+	TotalSize = 0;
+	for (;;)
+	{
+		NodeLength = DevicePathNodeLength(Node);
+		if (NodeLength < END_DEVICE_PATH_LENGTH)
+		{
+			return EFI_STATUS_INVALID_PARAMETER;
+		}
+
+		if (NodeLength > (((UINTN)-1) - TotalSize))
+		{
+			return EFI_STATUS_BUFFER_TOO_SMALL;
+		}
+
+		TotalSize += NodeLength;
+		if (TotalSize > DEVICE_PATH_MAX_SCAN_SIZE)
+		{
+			return EFI_STATUS_BUFFER_TOO_SMALL;
+		}
+
+		if (IsDevicePathEnd(Node))
+		{
+			*DevicePathSize = TotalSize;
+			return EFI_SUCCESS;
+		}
+
+		NodeCount++;
+		if (NodeCount > DEVICE_PATH_MAX_NODES)
+		{
+			return EFI_STATUS_INVALID_PARAMETER;
+		}
+
+		Node = NextDevicePathNode(Node);
+	}
+}
+
+static EFI_STATUS DuplicateDevicePath(
+	EFI_DEVICE_PATH_PROTOCOL* Source,
+	EFI_DEVICE_PATH_PROTOCOL** Destination)
+{
+	UINTN SourceSize;
+	EFI_STATUS Status;
+
+	if (Destination == NULL)
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
+
+	*Destination = NULL;
+	Status = GetDevicePathSize(Source, &SourceSize);
+	if (EFI_ERROR(Status))
+	{
+		return Status;
+	}
+
+	Status = LoaderAllocatePool(SourceSize, (VOID**)Destination);
+	if (EFI_ERROR(Status))
+	{
+		return Status;
+	}
+
+	memcpy(*Destination, Source, SourceSize);
 	return EFI_SUCCESS;
 }
 
-static EFI_STATUS BuildFilePathDevicePath(
-	CHAR16* ImagePath,
-	EFI_DEVICE_PATH_PROTOCOL** DevicePath,
-	UINTN* DevicePathSize)
+static EFI_STATUS AppendDevicePath(
+	EFI_DEVICE_PATH_PROTOCOL* First,
+	EFI_DEVICE_PATH_PROTOCOL* Second,
+	EFI_DEVICE_PATH_PROTOCOL** Destination)
 {
-	EFI_DEVICE_PATH_PROTOCOL* Header;
-	EFI_DEVICE_PATH_PROTOCOL* End;
-	CHAR16* PathName;
-	UINTN PathLength;
-	UINTN PrefixLength;
-	UINTN NodeCharacters;
-	UINTN NodeLength;
-	UINTN Index;
+	UINTN FirstSize;
+	UINTN FirstPayloadSize;
+	UINTN SecondSize;
+	UINTN DestinationSize;
+	EFI_STATUS Status;
 
-	*DevicePath = NULL;
-	*DevicePathSize = 0;
-	PathLength = 0;
-	while (ImagePath[PathLength] != 0)
-	{
-		PathLength++;
-	}
-
-	if (PathLength == 0)
+	if (Destination == NULL)
 	{
 		return EFI_STATUS_INVALID_PARAMETER;
 	}
 
-	PrefixLength = (ImagePath[0] == '\\') ? 0 : 1;
-	NodeCharacters = PrefixLength + PathLength + 1;
-	if (NodeCharacters > MAX_PATH)
+	*Destination = NULL;
+	if (First == NULL)
+	{
+		return DuplicateDevicePath(Second, Destination);
+	}
+
+	if (Second == NULL)
+	{
+		return DuplicateDevicePath(First, Destination);
+	}
+
+	Status = GetDevicePathSize(First, &FirstSize);
+	if (EFI_ERROR(Status))
+	{
+		return Status;
+	}
+
+	Status = GetDevicePathSize(Second, &SecondSize);
+	if (EFI_ERROR(Status))
+	{
+		return Status;
+	}
+
+	if (FirstSize < END_DEVICE_PATH_LENGTH)
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
+
+	FirstPayloadSize = FirstSize - END_DEVICE_PATH_LENGTH;
+	if (SecondSize > (((UINTN)-1) - FirstPayloadSize))
 	{
 		return EFI_STATUS_BUFFER_TOO_SMALL;
 	}
 
-	NodeLength = DEVICE_PATH_NODE_LENGTH(NodeCharacters);
-	Header = (EFI_DEVICE_PATH_PROTOCOL*)gRelativeImageDevicePath;
-	PathName = (CHAR16*)(gRelativeImageDevicePath + sizeof(EFI_DEVICE_PATH_PROTOCOL));
-	End = (EFI_DEVICE_PATH_PROTOCOL*)(gRelativeImageDevicePath + NodeLength);
-
-	Header->Type = MEDIA_DEVICE_PATH;
-	Header->SubType = MEDIA_FILEPATH_DP;
-	Header->Length[0] = DEVICE_PATH_LENGTH_LOW(NodeLength);
-	Header->Length[1] = DEVICE_PATH_LENGTH_HIGH(NodeLength);
-
-	Index = 0;
-	if (PrefixLength != 0)
+	DestinationSize = FirstPayloadSize + SecondSize;
+	Status = LoaderAllocatePool(DestinationSize, (VOID**)Destination);
+	if (EFI_ERROR(Status))
 	{
-		PathName[Index] = '\\';
-		Index++;
+		return Status;
 	}
 
-	while (ImagePath[Index - PrefixLength] != 0)
-	{
-		PathName[Index] = ImagePath[Index - PrefixLength];
-		Index++;
-	}
+	memcpy(*Destination, First, FirstPayloadSize);
+	memcpy((UINT8*)*Destination + FirstPayloadSize, Second, SecondSize);
 
-	PathName[Index] = 0;
-
-	End->Type = END_DEVICE_PATH_TYPE;
-	End->SubType = END_ENTIRE_DEVICE_PATH_SUBTYPE;
-	End->Length[0] = DEVICE_PATH_LENGTH_LOW(sizeof(EFI_DEVICE_PATH_PROTOCOL));
-	End->Length[1] = DEVICE_PATH_LENGTH_HIGH(sizeof(EFI_DEVICE_PATH_PROTOCOL));
-
-	*DevicePath = Header;
-	*DevicePathSize = NodeLength + sizeof(EFI_DEVICE_PATH_PROTOCOL);
+	SerialPrint(L"AppendDevicePath first=0x%016llX second=0x%016llX full=0x%016llX\n",
+		(UINT64)FirstSize,
+		(UINT64)SecondSize,
+		(UINT64)DestinationSize);
 	return EFI_SUCCESS;
 }
 
-static UINTN GetDevicePathSize(EFI_DEVICE_PATH_PROTOCOL* DevicePath)
+static EFI_STATUS CreateFileDevicePath(
+	CHAR16* ImagePath,
+	EFI_DEVICE_PATH_PROTOCOL** DevicePath,
+	UINTN* DevicePathSize)
 {
-	EFI_DEVICE_PATH_PROTOCOL* DevicePathCursor;
-	UINTN DevicePathSize;
-	UINTN DevicePathNodeSize;
+	EFI_FILEPATH_DEVICE_PATH* FilePath;
+	EFI_DEVICE_PATH_PROTOCOL* End;
+	CHAR16* Destination;
+	UINTN ImageLength;
+	UINTN PathCharacters;
+	UINTN PathSize;
+	UINTN NodeSize;
+	UINTN TotalSize;
+	UINTN SourceIndex;
+	UINTN DestinationIndex;
+	CHAR16 Character;
+	BOOLEAN NeedsRootPrefix;
+	EFI_STATUS Status;
 
-	DevicePathSize = 0;
-	DevicePathCursor = DevicePath;
-	while ((DevicePathCursor->Type != END_DEVICE_PATH_TYPE) ||
-		(DevicePathCursor->SubType != END_ENTIRE_DEVICE_PATH_SUBTYPE))
+	if ((ImagePath == NULL) || (DevicePath == NULL) || (DevicePathSize == NULL))
 	{
-		DevicePathNodeSize = ((UINTN)DevicePathCursor->Length[0]) | (((UINTN)DevicePathCursor->Length[1]) << 8);
-		if (DevicePathNodeSize < sizeof(EFI_DEVICE_PATH_PROTOCOL))
-		{
-			return 0;
-		}
-
-		DevicePathSize += DevicePathNodeSize;
-		DevicePathCursor = (EFI_DEVICE_PATH_PROTOCOL*)((UINT8*)DevicePathCursor + DevicePathNodeSize);
+		return EFI_STATUS_INVALID_PARAMETER;
 	}
 
-	return DevicePathSize;
+	*DevicePath = NULL;
+	*DevicePathSize = 0;
+	ImageLength = wcslen(ImagePath);
+	if (ImageLength == 0)
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
+
+	NeedsRootPrefix = ((ImagePath[0] != '\\') && (ImagePath[0] != '/')) ? TRUE : FALSE;
+	PathCharacters = ImageLength + (NeedsRootPrefix ? 1 : 0) + 1;
+	if (PathCharacters <= ImageLength)
+	{
+		return EFI_STATUS_BUFFER_TOO_SMALL;
+	}
+
+	PathSize = PathCharacters * sizeof(CHAR16);
+	NodeSize = SIZE_OF_FILEPATH_DEVICE_PATH + PathSize;
+	TotalSize = NodeSize + END_DEVICE_PATH_LENGTH;
+	if ((PathSize / sizeof(CHAR16)) != PathCharacters)
+	{
+		return EFI_STATUS_BUFFER_TOO_SMALL;
+	}
+
+	if ((NodeSize > 0xFFFF) || (TotalSize < NodeSize))
+	{
+		return EFI_STATUS_BUFFER_TOO_SMALL;
+	}
+
+	Status = LoaderAllocateZeroPool(TotalSize, (VOID**)&FilePath);
+	if (EFI_ERROR(Status))
+	{
+		return Status;
+	}
+
+	FilePath->Header.Type = MEDIA_DEVICE_PATH;
+	FilePath->Header.SubType = MEDIA_FILEPATH_DP;
+	SetDevicePathNodeLength(&FilePath->Header, NodeSize);
+
+	Destination = FilePath->PathName;
+	DestinationIndex = 0;
+	if (NeedsRootPrefix)
+	{
+		Destination[DestinationIndex] = '\\';
+		DestinationIndex++;
+	}
+
+	for (SourceIndex = 0; SourceIndex < ImageLength; SourceIndex++)
+	{
+		Character = ImagePath[SourceIndex];
+		if (Character == '/')
+		{
+			Character = '\\';
+		}
+
+		Destination[DestinationIndex] = Character;
+		DestinationIndex++;
+	}
+
+	Destination[DestinationIndex] = 0;
+
+	End = NextDevicePathNode(&FilePath->Header);
+	SetDevicePathEndNode(End);
+
+	*DevicePath = (EFI_DEVICE_PATH_PROTOCOL*)FilePath;
+	*DevicePathSize = TotalSize;
+	SerialPrint(L"FileDevicePath path=%s size=0x%016llX\n",
+		Destination,
+		(UINT64)TotalSize);
+	return EFI_SUCCESS;
 }
 
-static EFI_STATUS BuildFullImageDevicePath(
-	EFI_BOOT_SERVICES* BootServices,
-	EFI_HANDLE ParentHandle,
-	EFI_DEVICE_PATH_PROTOCOL* RelativeDevicePath,
-	UINTN RelativeDevicePathSize,
-	EFI_DEVICE_PATH_PROTOCOL** FullDevicePath)
+NTSTATUS EfiInitializeContext(BL_FIRMWARE_DESCRIPTOR_X64* Firmware)
 {
-	EFI_LOADED_IMAGE_PROTOCOL* LoadedImage = NULL;
-	EFI_DEVICE_PATH_PROTOCOL* BootDevicePath = NULL;
-	UINTN BootDevicePathSize;
-	UINTN FullSize;
-	EFI_STATUS EfiStatus;
+	memset(&gContext, 0, sizeof(gContext));
 
-	*FullDevicePath = NULL;
-
-	EfiStatus = GetParentLoadedImage(BootServices, ParentHandle, &LoadedImage);
-	if (EFI_ERROR(EfiStatus))
+	if ((Firmware == NULL) || (Firmware->SystemTable == NULL))
 	{
-		return EfiStatus;
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	gContext.Firmware = Firmware;
+	gContext.SystemTable = Firmware->SystemTable;
+	gContext.BootServices = Firmware->SystemTable->BootServices;
+	gContext.ConOut = Firmware->SystemTable->ConOut;
+	gContext.ParentHandle = Firmware->ImageHandle;
+	return STATUS_SUCCESS;
+}
+
+static EFI_STATUS HandleProtocol(
+	EFI_HANDLE Handle,
+	EFI_GUID* Protocol,
+	const CHAR16* TraceName,
+	VOID** Interface)
+{
+	EFI_STATUS Status;
+
+	if ((Handle == NULL) || (Protocol == NULL) || (Interface == NULL))
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
+
+	*Interface = NULL;
+	Status = gContext.BootServices->HandleProtocol(Handle, Protocol, Interface);
+	PrintEfiCallStatus(TraceName, Status);
+	SerialPrint(L"%s interface=%p\n", TraceName, *Interface);
+	if (EFI_ERROR(Status))
+	{
+		return Status;
+	}
+
+	if (*Interface == NULL)
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
+
+	return EFI_SUCCESS;
+}
+
+static EFI_STATUS GetParentLoadedImage(EFI_LOADED_IMAGE_PROTOCOL** LoadedImage)
+{
+	return HandleProtocol(
+		gContext.ParentHandle,
+		&gEfiLoadedImageProtocolGuid,
+		L"HandleProtocol(LoadedImage)",
+		(VOID**)LoadedImage);
+}
+
+static EFI_STATUS GetParentDevicePath(EFI_DEVICE_PATH_PROTOCOL** DevicePath)
+{
+	EFI_LOADED_IMAGE_PROTOCOL* LoadedImage;
+	EFI_STATUS Status;
+
+	if (DevicePath == NULL)
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
+
+	*DevicePath = NULL;
+	LoadedImage = NULL;
+	Status = GetParentLoadedImage(&LoadedImage);
+	if (EFI_ERROR(Status))
+	{
+		return Status;
 	}
 
 	if (LoadedImage->DeviceHandle == NULL)
@@ -320,34 +449,71 @@ static EFI_STATUS BuildFullImageDevicePath(
 		return EFI_STATUS_INVALID_PARAMETER;
 	}
 
-	EfiStatus = BootServices->HandleProtocol(LoadedImage->DeviceHandle, &gEfiDevicePathProtocolGuid, (VOID**)&BootDevicePath);
-	PrintEfiCallStatus(L"HandleProtocol(DevicePath)", EfiStatus);
-	SerialPrint(L"DeviceHandle=%p DevicePath=%p\n", LoadedImage->DeviceHandle, (VOID*)BootDevicePath);
-	if (EFI_ERROR(EfiStatus))
-	{
-		return EfiStatus;
-	}
+	Status = HandleProtocol(
+		LoadedImage->DeviceHandle,
+		&gEfiDevicePathProtocolGuid,
+		L"HandleProtocol(DevicePath)",
+		(VOID**)DevicePath);
+	SerialPrint(L"DeviceHandle=%p DevicePath=%p\n",
+		LoadedImage->DeviceHandle,
+		(VOID*)*DevicePath);
+	return Status;
+}
 
-	if (BootDevicePath == NULL)
+static EFI_STATUS BuildFullImageDevicePath(
+	EFI_DEVICE_PATH_PROTOCOL* RelativeDevicePath,
+	EFI_DEVICE_PATH_PROTOCOL** FullDevicePath)
+{
+	EFI_DEVICE_PATH_PROTOCOL* ParentDevicePath;
+	UINTN ParentDevicePathSize;
+	UINTN RelativeDevicePathSize;
+	UINTN FullDevicePathSize;
+	EFI_STATUS Status;
+
+	if ((RelativeDevicePath == NULL) || (FullDevicePath == NULL))
 	{
 		return EFI_STATUS_INVALID_PARAMETER;
 	}
 
-	BootDevicePathSize = GetDevicePathSize(BootDevicePath);
-	FullSize = BootDevicePathSize + RelativeDevicePathSize;
-	SerialPrint(L"DevicePath sizes base=0x%016llX file=0x%016llX full=0x%016llX\n",
-		(UINT64)BootDevicePathSize,
-		(UINT64)RelativeDevicePathSize,
-		(UINT64)FullSize);
-
-	if ((BootDevicePathSize == 0) || (FullSize > sizeof(gFullImageDevicePath)))
+	*FullDevicePath = NULL;
+	ParentDevicePath = NULL;
+	Status = GetParentDevicePath(&ParentDevicePath);
+	if (EFI_ERROR(Status))
 	{
-		return EFI_STATUS_BUFFER_TOO_SMALL;
+		return Status;
 	}
 
-	memcpy(gFullImageDevicePath, BootDevicePath, BootDevicePathSize);
-	memcpy(gFullImageDevicePath + BootDevicePathSize, RelativeDevicePath, RelativeDevicePathSize);
-	*FullDevicePath = (EFI_DEVICE_PATH_PROTOCOL*)gFullImageDevicePath;
+	Status = GetDevicePathSize(ParentDevicePath, &ParentDevicePathSize);
+	if (EFI_ERROR(Status))
+	{
+		return Status;
+	}
+
+	Status = GetDevicePathSize(RelativeDevicePath, &RelativeDevicePathSize);
+	if (EFI_ERROR(Status))
+	{
+		return Status;
+	}
+
+	Status = AppendDevicePath(ParentDevicePath, RelativeDevicePath, FullDevicePath);
+	PrintEfiCallStatus(L"AppendDevicePath(parent,file)", Status);
+	if (EFI_ERROR(Status))
+	{
+		return Status;
+	}
+
+	Status = GetDevicePathSize(*FullDevicePath, &FullDevicePathSize);
+	if (EFI_ERROR(Status))
+	{
+		LoaderFreePool(*FullDevicePath);
+		*FullDevicePath = NULL;
+		return Status;
+	}
+
+	SerialPrint(L"DevicePath sizes parent=0x%016llX file=0x%016llX full=0x%016llX\n",
+		(UINT64)ParentDevicePathSize,
+		(UINT64)RelativeDevicePathSize,
+		(UINT64)FullDevicePathSize);
 	return EFI_SUCCESS;
 }
 
@@ -356,6 +522,7 @@ static EFI_STATUS BuildPxeFileName(CHAR16* ImagePath, UINT8* FileName, UINTN Fil
 	UINTN SourceIndex;
 	UINTN DestinationIndex;
 	UINT8 Character;
+	CHAR16 WideCharacter;
 
 	if ((ImagePath == NULL) || (FileName == NULL) || (FileNameSize == 0))
 	{
@@ -376,12 +543,13 @@ static EFI_STATUS BuildPxeFileName(CHAR16* ImagePath, UINT8* FileName, UINTN Fil
 			return EFI_STATUS_BUFFER_TOO_SMALL;
 		}
 
-		if (ImagePath[SourceIndex] > 0x7F)
+		WideCharacter = ImagePath[SourceIndex];
+		if (WideCharacter > 0x7F)
 		{
 			return EFI_STATUS_INVALID_PARAMETER;
 		}
 
-		Character = (UINT8)ImagePath[SourceIndex];
+		Character = (UINT8)WideCharacter;
 		if (Character == '\\')
 		{
 			Character = '/';
@@ -401,44 +569,45 @@ static EFI_STATUS BuildPxeFileName(CHAR16* ImagePath, UINT8* FileName, UINTN Fil
 	return EFI_SUCCESS;
 }
 
-static BOOLEAN IsZeroIPv4(const UINT8* Address)
-{
-	return (Address[0] == 0) &&
-		(Address[1] == 0) &&
-		(Address[2] == 0) &&
-		(Address[3] == 0);
-}
-
 static EFI_STATUS GetPxeServerIp(EFI_PXE_BASE_CODE_PACKET* Packet, EFI_IP_ADDRESS* ServerIp)
 {
-	if ((Packet == NULL) || (ServerIp == NULL) || IsZeroIPv4(Packet->Dhcpv4.BootpSiAddr))
+	UINT8 ZeroAddress[4] = { 0 };
+	UINT64 Address;
+
+	if ((Packet == NULL) || (ServerIp == NULL) ||
+		(memcmp(Packet->Dhcpv4.BootpSiAddr, ZeroAddress, sizeof(ZeroAddress)) == 0))
 	{
 		return EFI_STATUS_NOT_FOUND;
 	}
 
 	memset(ServerIp, 0, sizeof(*ServerIp));
 	memcpy(ServerIp->v4.Addr, Packet->Dhcpv4.BootpSiAddr, sizeof(ServerIp->v4.Addr));
-	SerialPrint(L"PXE server IPv4=0x%08X\n",
+
+	Address =
 		((UINT64)ServerIp->v4.Addr[0] << 24) |
 		((UINT64)ServerIp->v4.Addr[1] << 16) |
 		((UINT64)ServerIp->v4.Addr[2] << 8) |
-		((UINT64)ServerIp->v4.Addr[3]));
+		((UINT64)ServerIp->v4.Addr[3]);
+	SerialPrint(L"PXE server IPv4=0x%08X\n", Address);
 	return EFI_SUCCESS;
 }
 
-static EFI_STATUS GetParentPxeBaseCode(
-	EFI_BOOT_SERVICES* BootServices,
-	EFI_HANDLE ParentHandle,
-	EFI_PXE_BASE_CODE_PROTOCOL** PxeBaseCode)
+static EFI_STATUS GetParentPxeBaseCode(EFI_PXE_BASE_CODE_PROTOCOL** PxeBaseCode)
 {
 	EFI_LOADED_IMAGE_PROTOCOL* LoadedImage;
-	EFI_STATUS EfiStatus;
+	EFI_STATUS Status;
+
+	if (PxeBaseCode == NULL)
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
 
 	*PxeBaseCode = NULL;
-	EfiStatus = GetParentLoadedImage(BootServices, ParentHandle, &LoadedImage);
-	if (EFI_ERROR(EfiStatus))
+	LoadedImage = NULL;
+	Status = GetParentLoadedImage(&LoadedImage);
+	if (EFI_ERROR(Status))
 	{
-		return EfiStatus;
+		return Status;
 	}
 
 	if (LoadedImage->DeviceHandle == NULL)
@@ -446,15 +615,17 @@ static EFI_STATUS GetParentPxeBaseCode(
 		return EFI_STATUS_INVALID_PARAMETER;
 	}
 
-	EfiStatus = BootServices->HandleProtocol(LoadedImage->DeviceHandle, &gEfiPxeBaseCodeProtocolGuid, (VOID**)PxeBaseCode);
-	PrintEfiCallStatus(L"HandleProtocol(PxeBaseCode)", EfiStatus);
-	SerialPrint(L"PxeBaseCode=%p\n", (VOID*)*PxeBaseCode);
-	if (EFI_ERROR(EfiStatus))
+	Status = HandleProtocol(
+		LoadedImage->DeviceHandle,
+		&gEfiPxeBaseCodeProtocolGuid,
+		L"HandleProtocol(PxeBaseCode)",
+		(VOID**)PxeBaseCode);
+	if (EFI_ERROR(Status))
 	{
-		return EfiStatus;
+		return Status;
 	}
 
-	if ((*PxeBaseCode == NULL) || ((*PxeBaseCode)->Mode == NULL))
+	if ((*PxeBaseCode)->Mode == NULL)
 	{
 		return EFI_STATUS_INVALID_PARAMETER;
 	}
@@ -472,7 +643,7 @@ static EFI_STATUS GetParentPxeBaseCode(
 
 static EFI_STATUS EnsurePxeBaseCodeStarted(EFI_PXE_BASE_CODE_PROTOCOL* PxeBaseCode)
 {
-	EFI_STATUS EfiStatus;
+	EFI_STATUS Status;
 
 	if ((PxeBaseCode == NULL) || (PxeBaseCode->Mode == NULL))
 	{
@@ -491,11 +662,11 @@ static EFI_STATUS EnsurePxeBaseCodeStarted(EFI_PXE_BASE_CODE_PROTOCOL* PxeBaseCo
 			return EFI_STATUS_UNSUPPORTED;
 		}
 
-		EfiStatus = PxeBaseCode->Start(PxeBaseCode, FALSE);
-		PrintEfiCallStatus(L"PxeBaseCode.Start", EfiStatus);
-		if (EFI_ERROR(EfiStatus))
+		Status = PxeBaseCode->Start(PxeBaseCode, FALSE);
+		PrintEfiCallStatus(L"PxeBaseCode.Start", Status);
+		if (EFI_ERROR(Status))
 		{
-			return EfiStatus;
+			return Status;
 		}
 	}
 
@@ -513,11 +684,11 @@ static EFI_STATUS EnsurePxeBaseCodeStarted(EFI_PXE_BASE_CODE_PROTOCOL* PxeBaseCo
 			return EFI_STATUS_NOT_FOUND;
 		}
 
-		EfiStatus = PxeBaseCode->Dhcp(PxeBaseCode, FALSE);
-		PrintEfiCallStatus(L"PxeBaseCode.Dhcp", EfiStatus);
-		if (EFI_ERROR(EfiStatus))
+		Status = PxeBaseCode->Dhcp(PxeBaseCode, FALSE);
+		PrintEfiCallStatus(L"PxeBaseCode.Dhcp", Status);
+		if (EFI_ERROR(Status))
 		{
-			return EfiStatus;
+			return Status;
 		}
 	}
 
@@ -525,7 +696,6 @@ static EFI_STATUS EnsurePxeBaseCodeStarted(EFI_PXE_BASE_CODE_PROTOCOL* PxeBaseCo
 }
 
 static EFI_STATUS DownloadPxeImage(
-	EFI_BOOT_SERVICES* BootServices,
 	EFI_PXE_BASE_CODE_PROTOCOL* PxeBaseCode,
 	EFI_IP_ADDRESS* ServerIp,
 	UINT8* FileName,
@@ -534,20 +704,23 @@ static EFI_STATUS DownloadPxeImage(
 {
 	VOID* Buffer;
 	UINT64 BufferSize;
-	EFI_STATUS EfiStatus;
+	EFI_STATUS Status;
+
+	if ((PxeBaseCode == NULL) || (ServerIp == NULL) ||
+		(FileName == NULL) || (ImageBuffer == NULL) || (ImageSize == NULL))
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
 
 	*ImageBuffer = NULL;
 	*ImageSize = 0;
-
-	if ((BootServices->AllocatePool == NULL) ||
-		(BootServices->FreePool == NULL) ||
-		(PxeBaseCode->Mtftp == NULL))
+	if (PxeBaseCode->Mtftp == NULL)
 	{
 		return EFI_STATUS_UNSUPPORTED;
 	}
 
 	BufferSize = 0;
-	EfiStatus = PxeBaseCode->Mtftp(
+	Status = PxeBaseCode->Mtftp(
 		PxeBaseCode,
 		EFI_PXE_BASE_CODE_TFTP_GET_FILE_SIZE,
 		NULL,
@@ -558,28 +731,28 @@ static EFI_STATUS DownloadPxeImage(
 		FileName,
 		NULL,
 		FALSE);
-	PrintEfiCallStatus(L"PxeBaseCode.Mtftp(GetFileSize)", EfiStatus);
+	PrintEfiCallStatus(L"PxeBaseCode.Mtftp(GetFileSize)", Status);
 	SerialPrint(L"PXE image size=0x%016llX\n", BufferSize);
-	if (EFI_ERROR(EfiStatus))
+	if (EFI_ERROR(Status))
 	{
-		return EfiStatus;
+		return Status;
 	}
 
-	if ((BufferSize == 0) || (BufferSize > PXE_MAX_IMAGE_SIZE))
+	if ((BufferSize == 0) || (BufferSize > PXE_MAX_IMAGE_SIZE) || (BufferSize > (UINT64)((UINTN)-1)))
 	{
 		return EFI_STATUS_BUFFER_TOO_SMALL;
 	}
 
 	Buffer = NULL;
-	EfiStatus = BootServices->AllocatePool(EfiLoaderData, (UINTN)BufferSize, &Buffer);
-	PrintEfiCallStatus(L"AllocatePool(PXE image)", EfiStatus);
+	Status = LoaderAllocatePool((UINTN)BufferSize, &Buffer);
+	PrintEfiCallStatus(L"AllocatePool(PXE image)", Status);
 	SerialPrint(L"PXE image buffer=%p\n", Buffer);
-	if (EFI_ERROR(EfiStatus))
+	if (EFI_ERROR(Status))
 	{
-		return EfiStatus;
+		return Status;
 	}
 
-	EfiStatus = PxeBaseCode->Mtftp(
+	Status = PxeBaseCode->Mtftp(
 		PxeBaseCode,
 		EFI_PXE_BASE_CODE_TFTP_READ_FILE,
 		Buffer,
@@ -590,12 +763,12 @@ static EFI_STATUS DownloadPxeImage(
 		FileName,
 		NULL,
 		FALSE);
-	PrintEfiCallStatus(L"PxeBaseCode.Mtftp(ReadFile)", EfiStatus);
+	PrintEfiCallStatus(L"PxeBaseCode.Mtftp(ReadFile)", Status);
 	SerialPrint(L"PXE bytes read=0x%016llX\n", BufferSize);
-	if (EFI_ERROR(EfiStatus))
+	if (EFI_ERROR(Status))
 	{
-		BootServices->FreePool(Buffer);
-		return EfiStatus;
+		LoaderFreePool(Buffer);
+		return Status;
 	}
 
 	*ImageBuffer = Buffer;
@@ -604,10 +777,9 @@ static EFI_STATUS DownloadPxeImage(
 }
 
 static EFI_STATUS LoadPxeImageFromPacket(
-	EFI_BOOT_SERVICES* BootServices,
-	EFI_HANDLE ParentHandle,
 	EFI_DEVICE_PATH_PROTOCOL* DevicePath,
 	EFI_PXE_BASE_CODE_PROTOCOL* PxeBaseCode,
+	const CHAR16* PacketName,
 	BOOLEAN PacketValid,
 	EFI_PXE_BASE_CODE_PACKET* Packet,
 	UINT8* FileName,
@@ -616,208 +788,292 @@ static EFI_STATUS LoadPxeImageFromPacket(
 	EFI_IP_ADDRESS ServerIp;
 	VOID* ImageBuffer;
 	UINTN ImageSize;
-	EFI_STATUS EfiStatus;
+	EFI_STATUS Status;
+
+	if ((DevicePath == NULL) || (PxeBaseCode == NULL) ||
+		(Packet == NULL) || (FileName == NULL) || (ImageHandle == NULL))
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
 
 	if (!PacketValid)
 	{
+		SerialPrint(L"PXE packet %s not valid\n", PacketName);
 		return EFI_STATUS_NOT_FOUND;
 	}
 
-	EfiStatus = GetPxeServerIp(Packet, &ServerIp);
-	PrintEfiCallStatus(L"GetPxeServerIp", EfiStatus);
-	if (EFI_ERROR(EfiStatus))
+	Status = GetPxeServerIp(Packet, &ServerIp);
+	PrintEfiCallStatus(L"GetPxeServerIp", Status);
+	if (EFI_ERROR(Status))
 	{
-		return EfiStatus;
+		return Status;
 	}
 
-	EfiStatus = DownloadPxeImage(BootServices, PxeBaseCode, &ServerIp, FileName, &ImageBuffer, &ImageSize);
-	if (EFI_ERROR(EfiStatus))
+	ImageBuffer = NULL;
+	ImageSize = 0;
+	Status = DownloadPxeImage(PxeBaseCode, &ServerIp, FileName, &ImageBuffer, &ImageSize);
+	if (EFI_ERROR(Status))
 	{
-		return EfiStatus;
+		return Status;
 	}
 
 	*ImageHandle = NULL;
-	EfiStatus = BootServices->LoadImage(FALSE, ParentHandle, DevicePath, ImageBuffer, ImageSize, ImageHandle);
-	PrintEfiCallStatus(L"LoadImage(PXE buffer)", EfiStatus);
+	Status = gContext.BootServices->LoadImage(
+		FALSE,
+		gContext.ParentHandle,
+		DevicePath,
+		ImageBuffer,
+		ImageSize,
+		ImageHandle);
+	PrintEfiCallStatus(L"LoadImage(PXE buffer)", Status);
 	SerialPrint(L"ImageHandle=%p\n", *ImageHandle);
-	BootServices->FreePool(ImageBuffer);
-	return EfiStatus;
+	LoaderFreePool(ImageBuffer);
+	return Status;
 }
 
 static EFI_STATUS LoadEfiImageFromPxe(
-	EFI_BOOT_SERVICES* BootServices,
-	EFI_HANDLE ParentHandle,
 	EFI_DEVICE_PATH_PROTOCOL* DevicePath,
 	CHAR16* ImagePath,
 	EFI_HANDLE* ImageHandle)
 {
 	EFI_PXE_BASE_CODE_PROTOCOL* PxeBaseCode;
-	EFI_STATUS EfiStatus;
+	UINT8 PxeFileName[MAX_PATH];
+	EFI_STATUS Status;
+
+	if ((DevicePath == NULL) || (ImagePath == NULL) || (ImageHandle == NULL))
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
 
 	*ImageHandle = NULL;
+	memset(PxeFileName, 0, sizeof(PxeFileName));
 
-	EfiStatus = BuildPxeFileName(ImagePath, gPxeFileName, sizeof(gPxeFileName));
-	PrintEfiCallStatus(L"BuildPxeFileName", EfiStatus);
-	if (EFI_ERROR(EfiStatus))
+	Status = BuildPxeFileName(ImagePath, PxeFileName, sizeof(PxeFileName));
+	PrintEfiCallStatus(L"BuildPxeFileName", Status);
+	if (EFI_ERROR(Status))
 	{
-		return EfiStatus;
+		return Status;
 	}
 
-	EfiStatus = GetParentPxeBaseCode(BootServices, ParentHandle, &PxeBaseCode);
-	if (EFI_ERROR(EfiStatus))
+	PxeBaseCode = NULL;
+	Status = GetParentPxeBaseCode(&PxeBaseCode);
+	if (EFI_ERROR(Status))
 	{
-		return EfiStatus;
+		return Status;
 	}
 
-	EfiStatus = EnsurePxeBaseCodeStarted(PxeBaseCode);
-	PrintEfiCallStatus(L"EnsurePxeBaseCodeStarted", EfiStatus);
-	if (EFI_ERROR(EfiStatus))
+	Status = EnsurePxeBaseCodeStarted(PxeBaseCode);
+	PrintEfiCallStatus(L"EnsurePxeBaseCodeStarted", Status);
+	if (EFI_ERROR(Status))
 	{
-		return EfiStatus;
+		return Status;
 	}
 
-	EfiStatus = LoadPxeImageFromPacket(
-		BootServices,
-		ParentHandle,
+	Status = LoadPxeImageFromPacket(
 		DevicePath,
 		PxeBaseCode,
+		L"PxeReply",
 		PxeBaseCode->Mode->PxeReplyReceived,
 		&PxeBaseCode->Mode->PxeReply,
-		gPxeFileName,
+		PxeFileName,
 		ImageHandle);
-	if (!EFI_ERROR(EfiStatus))
+	if (!EFI_ERROR(Status))
 	{
-		return EfiStatus;
+		return Status;
 	}
 
-	EfiStatus = LoadPxeImageFromPacket(
-		BootServices,
-		ParentHandle,
+	Status = LoadPxeImageFromPacket(
 		DevicePath,
 		PxeBaseCode,
+		L"ProxyOffer",
 		PxeBaseCode->Mode->ProxyOfferReceived,
 		&PxeBaseCode->Mode->ProxyOffer,
-		gPxeFileName,
+		PxeFileName,
 		ImageHandle);
-	if (!EFI_ERROR(EfiStatus))
+	if (!EFI_ERROR(Status))
 	{
-		return EfiStatus;
+		return Status;
 	}
 
 	return LoadPxeImageFromPacket(
-		BootServices,
-		ParentHandle,
 		DevicePath,
 		PxeBaseCode,
+		L"DhcpAck",
 		PxeBaseCode->Mode->DhcpAckReceived,
 		&PxeBaseCode->Mode->DhcpAck,
-		gPxeFileName,
+		PxeFileName,
 		ImageHandle);
 }
 
-static inline EFI_STATUS
-LoadEfiImage(EFI_BOOT_SERVICES* BootServices, EFI_HANDLE ParentHandle, EFI_DEVICE_PATH_PROTOCOL* DevicePath, EFI_HANDLE* ImageHandle)
+static EFI_STATUS LoadEfiImageFromDevicePath(
+	EFI_DEVICE_PATH_PROTOCOL* DevicePath,
+	const CHAR16* TraceName,
+	EFI_HANDLE* ImageHandle)
 {
-	EFI_STATUS EfiStatus;
+	EFI_STATUS Status;
+
+	if ((DevicePath == NULL) || (ImageHandle == NULL))
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
 
 	*ImageHandle = NULL;
-	EfiStatus = BootServices->LoadImage(FALSE, ParentHandle, DevicePath, NULL, 0, ImageHandle);
-	PrintEfiCallStatus(L"LoadImage", EfiStatus);
+	Status = gContext.BootServices->LoadImage(FALSE, gContext.ParentHandle, DevicePath, NULL, 0, ImageHandle);
+	PrintEfiCallStatus(TraceName, Status);
 	SerialPrint(L"ImageHandle=%p\n", *ImageHandle);
-	return EfiStatus;
+	return Status;
 }
 
-static inline EFI_STATUS
-StartEfiImage(EFI_BOOT_SERVICES* BootServices, EFI_HANDLE ImageHandle)
+static EFI_STATUS StartEfiImage(EFI_HANDLE ImageHandle)
 {
 	CHAR16* ExitData;
 	UINTN ExitDataSize;
-	EFI_STATUS EfiStatus;
+	EFI_STATUS Status;
+
+	if (ImageHandle == NULL)
+	{
+		return EFI_STATUS_INVALID_PARAMETER;
+	}
 
 	ExitDataSize = 0;
 	ExitData = NULL;
-	EfiStatus = BootServices->StartImage(ImageHandle, &ExitDataSize, &ExitData);
-	PrintEfiCallStatus(L"StartImage", EfiStatus);
+	Status = gContext.BootServices->StartImage(ImageHandle, &ExitDataSize, &ExitData);
+	PrintEfiCallStatus(L"StartImage", Status);
 	SerialPrint(L"ExitDataSize=0x%016llX ExitData=%p\n", (UINT64)ExitDataSize, (VOID*)ExitData);
-	return EfiStatus;
+	return Status;
 }
 
-NTSTATUS EfiStartEfiApplication(BL_FIRMWARE_DESCRIPTOR_X64* Firmware, CHAR16* ImagePath)
+static EFI_STATUS LoadTargetImage(
+	CHAR16* ImagePath,
+	EFI_HANDLE* ImageHandle,
+	EFI_DEVICE_PATH_PROTOCOL** RelativeDevicePath,
+	EFI_DEVICE_PATH_PROTOCOL** FullDevicePath)
 {
-	EFI_SYSTEM_TABLE* SystemTable = Firmware->SystemTable;
-	EFI_BOOT_SERVICES* BootServices = SystemTable->BootServices;
-	EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL* ConOut = SystemTable->ConOut;
-	EFI_HANDLE ParentHandle = Firmware->ImageHandle;
-	EFI_DEVICE_PATH_PROTOCOL* RelativeDevicePath;
-	EFI_DEVICE_PATH_PROTOCOL* FullDevicePath;
 	EFI_DEVICE_PATH_PROTOCOL* PxeDevicePath;
-	EFI_HANDLE ImageHandle;
 	UINTN RelativeDevicePathSize;
-	EFI_STATUS EfiStatus;
-	BOOLEAN TryFullDevicePath;
+	EFI_STATUS Status;
 
-	SerialPrint(L"BS=%p LoadImage=%p StartImage=%p\n",
-		(VOID*)BootServices,
-		(VOID*)(UINTN)BootServices->LoadImage,
-		(VOID*)(UINTN)BootServices->StartImage);
-
-	if (BootServices->SetWatchdogTimer != NULL)
+	if ((ImagePath == NULL) || (ImageHandle == NULL) ||
+		(RelativeDevicePath == NULL) || (FullDevicePath == NULL))
 	{
-		EfiStatus = BootServices->SetWatchdogTimer(0, 0, 0, NULL);
-		PrintEfiCallStatus(L"SetWatchdogTimer", EfiStatus);
+		return EFI_STATUS_INVALID_PARAMETER;
 	}
 
-	EfiPrint(ConOut, L"LoadImage %s\n", ImagePath);
+	*ImageHandle = NULL;
+	*RelativeDevicePath = NULL;
+	*FullDevicePath = NULL;
+	RelativeDevicePathSize = 0;
+
+	Status = CreateFileDevicePath(ImagePath, RelativeDevicePath, &RelativeDevicePathSize);
+	PrintEfiCallStatus(L"FileDevicePath", Status);
+	if (EFI_ERROR(Status))
+	{
+		return Status;
+	}
+
+	Status = LoadEfiImageFromDevicePath(
+		*RelativeDevicePath,
+		L"LoadImage(relative)",
+		ImageHandle);
+	if (!EFI_ERROR(Status))
+	{
+		return Status;
+	}
+
+	Status = BuildFullImageDevicePath(*RelativeDevicePath, FullDevicePath);
+	PrintEfiCallStatus(L"BuildFullImageDevicePath", Status);
+	if (!EFI_ERROR(Status))
+	{
+		Status = LoadEfiImageFromDevicePath(
+			*FullDevicePath,
+			L"LoadImage(full)",
+			ImageHandle);
+		if (!EFI_ERROR(Status))
+		{
+			return Status;
+		}
+	}
+
+	PxeDevicePath = (*FullDevicePath != NULL) ? *FullDevicePath : *RelativeDevicePath;
+	Status = LoadEfiImageFromPxe(PxeDevicePath, ImagePath, ImageHandle);
+	PrintEfiCallStatus(L"LoadEfiImageFromPxe", Status);
+	return Status;
+}
+
+static NTSTATUS EfiStatusToNtStatus(EFI_STATUS Status)
+{
+	if (!EFI_ERROR(Status))
+	{
+		return STATUS_SUCCESS;
+	}
+
+	switch (Status)
+	{
+	case EFI_STATUS_INVALID_PARAMETER:
+		return STATUS_INVALID_PARAMETER;
+
+	case EFI_STATUS_UNSUPPORTED:
+		return STATUS_NOT_SUPPORTED;
+
+	case EFI_STATUS_BUFFER_TOO_SMALL:
+		return STATUS_BUFFER_TOO_SMALL;
+
+	case EFI_STATUS_NOT_FOUND:
+		return STATUS_NOT_FOUND;
+
+	default:
+		return STATUS_UNSUCCESSFUL;
+	}
+}
+
+NTSTATUS EfiStartApplication(CHAR16* ImagePath)
+{
+	EFI_DEVICE_PATH_PROTOCOL* RelativeDevicePath;
+	EFI_DEVICE_PATH_PROTOCOL* FullDevicePath;
+	EFI_HANDLE ImageHandle;
+	EFI_STATUS Status;
+	NTSTATUS NtStatus;
+
+	SerialPrint(L"BS=%p LoadImage=%p StartImage=%p\n",
+		(VOID*)gContext.BootServices,
+		(VOID*)(UINTN)gContext.BootServices->LoadImage,
+		(VOID*)(UINTN)gContext.BootServices->StartImage);
+
+	Status = gContext.BootServices->SetWatchdogTimer(0, 0, 0, NULL);
+	PrintEfiCallStatus(L"SetWatchdogTimer", Status);
+
+	EfiPrint(L"LoadImage %s\n", ImagePath);
 	SerialPrint(L"Target image path=%s\n", ImagePath);
 
 	RelativeDevicePath = NULL;
 	FullDevicePath = NULL;
-	PxeDevicePath = NULL;
-	RelativeDevicePathSize = 0;
-	TryFullDevicePath = FALSE;
-	EfiStatus = BuildFilePathDevicePath(ImagePath, &RelativeDevicePath, &RelativeDevicePathSize);
-	PrintEfiCallStatus(L"BuildFilePathDevicePath", EfiStatus);
-	if (!EFI_ERROR(EfiStatus))
+	ImageHandle = NULL;
+	Status = LoadTargetImage(
+		ImagePath,
+		&ImageHandle,
+		&RelativeDevicePath,
+		&FullDevicePath);
+	if (EFI_ERROR(Status))
 	{
-		EfiStatus = LoadEfiImage(BootServices, ParentHandle, RelativeDevicePath, &ImageHandle);
-		if (EFI_ERROR(EfiStatus))
-		{
-			TryFullDevicePath = TRUE;
-		}
+		EfiPrint(L"LoadImage failed\n");
+		NtStatus = EfiStatusToNtStatus(Status);
+		goto cleanup;
 	}
 
-	if (TryFullDevicePath)
+	EfiPrint(L"LoadImage OK, starting image\n");
+	Status = StartEfiImage(ImageHandle);
+	if (EFI_ERROR(Status))
 	{
-		EfiStatus = BuildFullImageDevicePath(BootServices, ParentHandle, RelativeDevicePath, RelativeDevicePathSize, &FullDevicePath);
-		PrintEfiCallStatus(L"BuildFullImageDevicePath", EfiStatus);
-		if (!EFI_ERROR(EfiStatus))
-		{
-			EfiStatus = LoadEfiImage(BootServices, ParentHandle, FullDevicePath, &ImageHandle);
-		}
+		EfiPrint(L"StartImage failed\n");
+		NtStatus = STATUS_UNSUCCESSFUL;
+		goto cleanup;
 	}
 
-	if (EFI_ERROR(EfiStatus) && (RelativeDevicePath != NULL))
-	{
-		PxeDevicePath = (FullDevicePath != NULL) ? FullDevicePath : RelativeDevicePath;
-		EfiStatus = LoadEfiImageFromPxe(BootServices, ParentHandle, PxeDevicePath, ImagePath, &ImageHandle);
-		PrintEfiCallStatus(L"LoadEfiImageFromPxe", EfiStatus);
-	}
+	EfiPrint(L"StartImage returned\n");
+	NtStatus = STATUS_SUCCESS;
 
-	if (EFI_ERROR(EfiStatus))
-	{
-		EfiPrint(ConOut, L"LoadImage failed\n");
-		return STATUS_NOT_FOUND;
-	}
-
-	EfiPrint(ConOut, L"LoadImage OK, starting image\n");
-	EfiStatus = StartEfiImage(BootServices, ImageHandle);
-
-	if (EFI_ERROR(EfiStatus))
-	{
-		EfiPrint(ConOut, L"StartImage failed\n");
-		return STATUS_UNSUCCESSFUL;
-	}
-
-	EfiPrint(ConOut, L"StartImage returned\n");
-	return STATUS_SUCCESS;
+cleanup:
+	LoaderFreePool(FullDevicePath);
+	LoaderFreePool(RelativeDevicePath);
+	return NtStatus;
 }

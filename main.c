@@ -25,6 +25,8 @@
 #include "serial.h"
 #include "types.h"
 
+EFI_CONTEXT gContext;
+
 static VOID CopyString16(CHAR16* Destination, const CHAR16* Source, UINTN DestinationCharacters)
 {
 	UINTN Index;
@@ -51,8 +53,6 @@ NTSTATUS BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParameters)
 	CHAR16 TargetImagePath[MAX_PATH] = DEFAULT_IMAGE_PATH;
 	BL_LOADED_APPLICATION_ENTRY LoadedApplicationEntry;
 	BL_FIRMWARE_DESCRIPTOR_X64* Firmware = NULL;
-	EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL* ConOut = NULL;
-	EFI_SYSTEM_TABLE* SystemTable = NULL;
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
 	SerialInitialize();
@@ -95,10 +95,11 @@ NTSTATUS BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParameters)
 		goto fail;
 	}
 
-	if ((Firmware->ImageHandle == NULL) || (Firmware->SystemTable == NULL))
+	Status = EfiInitializeContext(Firmware);
+	SerialPrint(L"EfiInitializeContext status=0x%08X\n", (UINT64)(UINT32)Status);
+	if (Status != STATUS_SUCCESS)
 	{
 		SerialPrint(L"FW invalid\n");
-		Status = STATUS_INVALID_PARAMETER;
 		goto fail;
 	}
 
@@ -115,17 +116,13 @@ NTSTATUS BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParameters)
 		SerialPrint(L"Resolved target image path=%s\n", TargetImagePath);
 	}
 
-	SystemTable = Firmware->SystemTable;
-	ConOut = SystemTable->ConOut;
-	SerialPrint(L"ConOut=%p OutputString=%p\n", (VOID*)ConOut, (VOID*)(UINTN)ConOut->OutputString);
-
-	SerialPrint(L"restoring FirmwareContext\n");
+	SerialPrint(L"Restoring FirmwareContext\n");
 	ArchRestoreFirmwareContext(&Firmware->ProcessorState);
 	SerialPrint(L"FirmwareContext restored\n");
 
-	EfiPrint(ConOut, L"EFILOADER: Copyright (c) 2026 A1ive <https://github.com/a1ive>\n");
+	EfiPrint(L"EFILOADER: Copyright (c) 2026 A1ive <https://github.com/a1ive/efiloader>\n");
 
-	Status = EfiStartEfiApplication(Firmware, TargetImagePath);
+	Status = EfiStartApplication(TargetImagePath);
 
 fail:
 	for (;;)

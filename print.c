@@ -20,48 +20,49 @@
 
 #include <stdarg.h>
 
+#include "loader.h"
 #include "serial.h"
 
 typedef struct _PRINT_CONTEXT
 {
-	EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL* ConOut;
+	BOOLEAN SerialOnly;
 	EFI_STATUS Status;
 } PRINT_CONTEXT;
 
-static VOID PrintPutCharacter(PRINT_CONTEXT* Context, CHAR16 Character)
+static VOID PrintPutCharacter(PRINT_CONTEXT* PrintContext, CHAR16 Character)
 {
 	EFI_STATUS Status;
 	CHAR16 Buffer[2];
 
 	if (Character == '\n')
 	{
-		PrintPutCharacter(Context, '\r');
+		PrintPutCharacter(PrintContext, '\r');
 	}
 
 #ifdef ENABLE_SERIAL_DEBUG
-	if (Context->ConOut == NULL)
+	if (PrintContext->SerialOnly)
 	{
 		SerialWriteCharacter(Character);
 		return;
 	}
 #endif
 
-	if (EFI_ERROR(Context->Status))
+	if (EFI_ERROR(PrintContext->Status))
 	{
 		return;
 	}
 
 	Buffer[0] = Character;
 	Buffer[1] = 0;
-	Status = Context->ConOut->OutputString(Context->ConOut, Buffer);
+	Status = gContext.ConOut->OutputString(gContext.ConOut, Buffer);
 	if (EFI_ERROR(Status))
 	{
-		Context->Status = Status;
+		PrintContext->Status = Status;
 	}
 }
 
 static VOID PrintHex(
-	PRINT_CONTEXT* Context,
+	PRINT_CONTEXT* PrintContext,
 	UINT64 Value,
 	UINTN Width)
 {
@@ -81,19 +82,19 @@ static VOID PrintHex(
 
 	while (Width > Index)
 	{
-		PrintPutCharacter(Context, '0');
+		PrintPutCharacter(PrintContext, '0');
 		Width--;
 	}
 
 	while (Index != 0)
 	{
 		Index--;
-		PrintPutCharacter(Context, Buffer[Index]);
+		PrintPutCharacter(PrintContext, Buffer[Index]);
 	}
 }
 
 static VOID PrintString(
-	PRINT_CONTEXT* Context,
+	PRINT_CONTEXT* PrintContext,
 	const CHAR16* String)
 {
 	if (String == NULL)
@@ -103,13 +104,13 @@ static VOID PrintString(
 
 	while (*String != 0)
 	{
-		PrintPutCharacter(Context, *String);
+		PrintPutCharacter(PrintContext, *String);
 		String++;
 	}
 }
 
 static VOID PrintFormat(
-	PRINT_CONTEXT* Context,
+	PRINT_CONTEXT* PrintContext,
 	const CHAR16* Format,
 	va_list Arguments)
 {
@@ -120,7 +121,7 @@ static VOID PrintFormat(
 
 		if (*Format != '%')
 		{
-			PrintPutCharacter(Context, *Format);
+			PrintPutCharacter(PrintContext, *Format);
 			Format++;
 			continue;
 		}
@@ -153,26 +154,26 @@ static VOID PrintFormat(
 		switch (Specifier)
 		{
 		case 's':
-			PrintString(Context, va_arg(Arguments, CHAR16*));
+			PrintString(PrintContext, va_arg(Arguments, CHAR16*));
 			break;
 
 		case 'p':
-			PrintString(Context, L"0x");
-			PrintHex(Context, (UINT64)(UINTN)va_arg(Arguments, VOID*), 16);
+			PrintString(PrintContext, L"0x");
+			PrintHex(PrintContext, (UINT64)(UINTN)va_arg(Arguments, VOID*), 16);
 			break;
 
 		case 'X':
 		case 'x':
-			PrintHex(Context, va_arg(Arguments, UINT64), Width);
+			PrintHex(PrintContext, va_arg(Arguments, UINT64), Width);
 			break;
 
 		case '%':
-			PrintPutCharacter(Context, '%');
+			PrintPutCharacter(PrintContext, '%');
 			break;
 
 		default:
-			PrintPutCharacter(Context, '%');
-			PrintPutCharacter(Context, Specifier);
+			PrintPutCharacter(PrintContext, '%');
+			PrintPutCharacter(PrintContext, Specifier);
 			break;
 		}
 	}
@@ -182,35 +183,30 @@ static VOID PrintFormat(
 
 VOID SerialPrint(const CHAR16* Format, ...)
 {
-	PRINT_CONTEXT Context;
+	PRINT_CONTEXT PrintContext;
 	va_list Arguments;
 
-	Context.ConOut = NULL;
-	Context.Status = EFI_SUCCESS;
+	PrintContext.SerialOnly = TRUE;
+	PrintContext.Status = EFI_SUCCESS;
 
 	va_start(Arguments, Format);
-	PrintFormat(&Context, Format, Arguments);
+	PrintFormat(&PrintContext, Format, Arguments);
 	va_end(Arguments);
 }
 
 #endif
 
-EFI_STATUS EfiPrint(EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL* ConOut, const CHAR16* Format, ...)
+EFI_STATUS EfiPrint(const CHAR16* Format, ...)
 {
-	PRINT_CONTEXT Context;
+	PRINT_CONTEXT PrintContext;
 	va_list Arguments;
 
-	if ((ConOut == NULL) || (Format == NULL))
-	{
-		return EFI_STATUS_INVALID_PARAMETER;
-	}
-
-	Context.ConOut = ConOut;
-	Context.Status = EFI_SUCCESS;
+	PrintContext.SerialOnly = FALSE;
+	PrintContext.Status = EFI_SUCCESS;
 
 	va_start(Arguments, Format);
-	PrintFormat(&Context, Format, Arguments);
+	PrintFormat(&PrintContext, Format, Arguments);
 	va_end(Arguments);
 
-	return Context.Status;
+	return PrintContext.Status;
 }

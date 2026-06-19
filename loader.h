@@ -20,4 +20,16 @@
 
 #include "types.h"
 
-NTSTATUS EfiStartEfiApplication(BL_FIRMWARE_DESCRIPTOR_X64* Firmware, CHAR16* ImagePath);
+typedef struct _EFI_CONTEXT
+{
+	BL_FIRMWARE_DESCRIPTOR_X64* Firmware;
+	EFI_SYSTEM_TABLE* SystemTable;
+	EFI_BOOT_SERVICES* BootServices;
+	EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL* ConOut;
+	EFI_HANDLE ParentHandle;
+} EFI_CONTEXT;
+
+extern EFI_CONTEXT gContext;
+
+NTSTATUS EfiInitializeContext(BL_FIRMWARE_DESCRIPTOR_X64* Firmware);
+NTSTATUS EfiStartApplication(CHAR16* ImagePath);

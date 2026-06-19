@@ -21,4 +21,6 @@
 #include "types.h"
 
 VOID* memcpy(VOID* Destination, const VOID* Source, UINTN Size);
+int memcmp(const VOID* First, const VOID* Second, UINTN Count);
 VOID* memset(VOID* Destination, int Value, UINTN Count);
+UINTN wcslen(CHAR16* String);

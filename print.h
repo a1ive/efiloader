@@ -26,4 +26,4 @@ VOID SerialPrint(const CHAR16* Format, ...);
 #define SerialPrint(Format, ...) ((VOID)0)
 #endif
 
-EFI_STATUS EfiPrint(EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL* ConOut, const CHAR16* Format, ...);
+EFI_STATUS EfiPrint(const CHAR16* Format, ...);
