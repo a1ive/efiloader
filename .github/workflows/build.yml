@@ -43,7 +43,7 @@ jobs:
           Copy-Item -LiteralPath 'LICENSE' -Destination "$packageDir\LICENSE" -Force
 
       - name: Upload Application
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: efiloader
           path: PKG/
