@@ -370,7 +370,7 @@ static EFI_STATUS CreateFileDevicePath(
 	return EFI_SUCCESS;
 }
 
-NTSTATUS EfiInitializeContext(BL_FIRMWARE_DESCRIPTOR_X64* Firmware)
+NTSTATUS EfiInitializeContext(BL_FIRMWARE_DESCRIPTOR* Firmware)
 {
 	memset(&gContext, 0, sizeof(gContext));
 

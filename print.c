@@ -159,7 +159,7 @@ static VOID PrintFormat(
 
 		case 'p':
 			PrintString(PrintContext, L"0x");
-			PrintHex(PrintContext, (UINT64)(UINTN)va_arg(Arguments, VOID*), 16);
+			PrintHex(PrintContext, (UINT64)(UINTN)va_arg(Arguments, VOID*), sizeof(UINTN) * 2);
 			break;
 
 		case 'X':

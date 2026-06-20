@@ -11,11 +11,11 @@ own application context. In that context, direct calls into firmware services
 such as `ST`, `BS`, or console protocols may partially work or may hang.
 
 `efiloader` reads the firmware descriptor from
-`BOOT_APPLICATION_PARAMETER_BLOCK`, restores the saved x64 firmware processor
-state, verifies screen output through `ConOut->OutputString`, and then launches
-a target EFI application.
+`BOOT_APPLICATION_PARAMETER_BLOCK`, prepares a firmware-callable context,
+verifies screen output through `ConOut->OutputString`, and then launches a
+target EFI application.
 
-The restored firmware context includes:
+On x64, the restored firmware context includes:
 
 - `CR3`
 - `GDTR`
@@ -87,13 +87,7 @@ Serial debug output goes to COM1 and is disabled by default. Define
 
 ## Limitations
 
-After switching from Boot Manager's application context to the firmware context,
-the current control flow treats the switch as one-way. Do not add normal returns
-to Boot Manager after firmware calls unless the Boot Manager application context
-is also captured, restored, and verified.
-
-Only x64 firmware descriptors with version 2 or newer are supported by the
-current implementation.
+Firmware descriptors with version 2 or newer are supported.
 
 ## Acknowledgements
 

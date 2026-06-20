@@ -18,6 +18,14 @@ env:
 jobs:
   build:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Win32
+            artifact-arch: x86
+          - platform: x64
+            artifact-arch: x64
 
     steps:
       - name: Run git checkout
@@ -28,23 +36,23 @@ jobs:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v3
 
-      - name: Build
+      - name: Build ${{ matrix.platform }}
         working-directory: ${{env.GITHUB_WORKSPACE}}
         run: |
-          msbuild /m /p:Configuration=Release /p:platform=x64 ${{env.SOLUTION_FILE_PATH}}
+          msbuild /m /p:Configuration=Release /p:Platform=${{ matrix.platform }} ${{env.SOLUTION_FILE_PATH}}
 
       - name: Prepare Package
         shell: pwsh
         run: |
           $packageDir = 'PKG'
           New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
-          Copy-Item -LiteralPath 'x64\Release\efiloader.efi' -Destination "$packageDir\efiloader.efi" -Force
+          Copy-Item -LiteralPath '${{ matrix.platform }}\Release\efiloader.efi' -Destination "$packageDir\efiloader.efi" -Force
           Copy-Item -LiteralPath 'add_menu.bat' -Destination "$packageDir\add_menu.bat" -Force
           Copy-Item -LiteralPath 'LICENSE' -Destination "$packageDir\LICENSE" -Force
 
       - name: Upload Application
         uses: actions/upload-artifact@v7
         with:
-          name: efiloader
+          name: efiloader-${{ matrix.artifact-arch }}
           path: PKG/
           if-no-files-found: error

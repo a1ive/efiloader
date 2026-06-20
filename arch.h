@@ -20,4 +20,6 @@
 
 #include "types.h"
 
-VOID ArchRestoreFirmwareContext(const BL_FIRMWARE_PROCESSOR_STATE_X64* State);
+VOID ArchRestoreFirmwareContext(
+	const BL_FIRMWARE_PROCESSOR_STATE* State,
+	const BL_FIRMWARE_PROCESSOR_STATE* PreviousState);

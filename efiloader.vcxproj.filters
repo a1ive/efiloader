@@ -7,6 +7,7 @@
     <ClCompile Include="print.c" />
     <ClCompile Include="serial.c" />
     <MASM Include="arch_amd64.asm" />
+    <MASM Include="arch_ia32.asm" />
     <ClCompile Include="compiler.c" />
   </ItemGroup>
   <ItemGroup>

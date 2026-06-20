@@ -48,11 +48,11 @@ static VOID CopyString16(CHAR16* Destination, const CHAR16* Source, UINTN Destin
 
 #define DEFAULT_IMAGE_PATH L"\\shell.efi"
 
-NTSTATUS BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParameters)
+NTSTATUS BLAPI BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParameters)
 {
 	CHAR16 TargetImagePath[MAX_PATH] = DEFAULT_IMAGE_PATH;
 	BL_LOADED_APPLICATION_ENTRY LoadedApplicationEntry;
-	BL_FIRMWARE_DESCRIPTOR_X64* Firmware = NULL;
+	BL_FIRMWARE_DESCRIPTOR* Firmware = NULL;
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
 	SerialInitialize();
@@ -65,18 +65,23 @@ NTSTATUS BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParameters)
 		goto fail;
 	}
 
-	Firmware = (BL_FIRMWARE_DESCRIPTOR_X64*)((UINT8*)BootParameters + BootParameters->FirmwareParametersOffset);
+	Firmware = (BL_FIRMWARE_DESCRIPTOR*)((UINT8*)BootParameters + BootParameters->FirmwareParametersOffset);
+	SerialPrint(L"BP size=0x%016llX fw=0x%016llX ret=0x%016llX\n",
+		(UINT64)BootParameters->Size,
+		(UINT64)BootParameters->FirmwareParametersOffset,
+		(UINT64)BootParameters->ReturnArgumentsOffset);
 
 	SerialPrint(L"FW version=0x%016llX image=%p st=%p\n",
 		(UINT64)Firmware->Version,
 		Firmware->ImageHandle,
 		(VOID*)Firmware->SystemTable);
 
+#if defined(_M_X64)
 	SerialPrint(L"FW cr3=0x%016llX gdtr=0x%016llX:0x%016llX idtr=0x%016llX:0x%016llX\n",
-		Firmware->ProcessorState.Cr3,
-		Firmware->ProcessorState.Gdtr.Base,
+		(UINT64)Firmware->ProcessorState.Cr3,
+		(UINT64)Firmware->ProcessorState.Gdtr.Base,
 		(UINT64)Firmware->ProcessorState.Gdtr.Limit,
-		Firmware->ProcessorState.Idtr.Base,
+		(UINT64)Firmware->ProcessorState.Idtr.Base,
 		(UINT64)Firmware->ProcessorState.Idtr.Limit);
 
 	SerialPrint(L"FW cs=0x%016llX ds=0x%016llX es=0x%016llX fs=0x%016llX gs=0x%016llX ss=0x%016llX trans=0x%016llX\n",
@@ -87,10 +92,16 @@ NTSTATUS BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParameters)
 		(UINT64)Firmware->ProcessorState.Gs,
 		(UINT64)Firmware->ProcessorState.Ss,
 		(UINT64)Firmware->ProcessorState.TranslationEnabled);
+#else
+	SerialPrint(L"FW IA32 descriptor size=0x%016llX\n",
+		(UINT64)((BootParameters->ReturnArgumentsOffset > BootParameters->FirmwareParametersOffset) ?
+			(BootParameters->ReturnArgumentsOffset - BootParameters->FirmwareParametersOffset) :
+			sizeof(*Firmware)));
+#endif
 
 	if (Firmware->Version < 2)
 	{
-		SerialPrint(L"Unsupported FW version %x\n", Firmware->Version);
+		SerialPrint(L"Unsupported FW version %x\n", (UINT64)Firmware->Version);
 		Status = STATUS_NOT_SUPPORTED;
 		goto fail;
 	}
@@ -116,9 +127,14 @@ NTSTATUS BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParameters)
 		SerialPrint(L"Resolved target image path=%s\n", TargetImagePath);
 	}
 
+#if defined(_M_X64)
 	SerialPrint(L"Restoring FirmwareContext\n");
-	ArchRestoreFirmwareContext(&Firmware->ProcessorState);
+	ArchRestoreFirmwareContext(&Firmware->ProcessorState, NULL);
 	SerialPrint(L"FirmwareContext restored\n");
+#else
+	SerialPrint(L"Using current IA32 FirmwareContext\n");
+	ArchRestoreFirmwareContext(NULL, NULL);
+#endif
 
 	EfiPrint(L"EFILOADER: Copyright (c) 2026 A1ive <https://github.com/a1ive/efiloader>\n");
 

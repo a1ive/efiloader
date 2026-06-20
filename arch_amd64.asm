@@ -18,7 +18,9 @@
 
 .code
 
-; VOID ArchRestoreFirmwareContext(const BL_FIRMWARE_PROCESSOR_STATE_X64* State)
+; VOID ArchRestoreFirmwareContext(
+;     const BL_FIRMWARE_PROCESSOR_STATE* State,
+;     const BL_FIRMWARE_PROCESSOR_STATE* PreviousState)
 ;
 ; State layout starts at BL_FIRMWARE_DESCRIPTOR_X64 + 0x1C:
 ;   +0x00 UINT64 Cr3
