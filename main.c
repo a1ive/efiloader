@@ -53,6 +53,7 @@ NTSTATUS BLAPI BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParamete
 	CHAR16 TargetImagePath[MAX_PATH] = DEFAULT_IMAGE_PATH;
 	BL_LOADED_APPLICATION_ENTRY LoadedApplicationEntry;
 	BL_FIRMWARE_DESCRIPTOR* Firmware = NULL;
+	UINTN FirmwareDescriptorSize;
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
 	SerialInitialize();
@@ -66,45 +67,73 @@ NTSTATUS BLAPI BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParamete
 	}
 
 	Firmware = (BL_FIRMWARE_DESCRIPTOR*)((UINT8*)BootParameters + BootParameters->FirmwareParametersOffset);
+	FirmwareDescriptorSize = (BootParameters->ReturnArgumentsOffset > BootParameters->FirmwareParametersOffset) ?
+		((UINTN)BootParameters->ReturnArgumentsOffset - (UINTN)BootParameters->FirmwareParametersOffset) :
+		sizeof(*Firmware);
+
 	SerialPrint(L"BP size=0x%016llX fw=0x%016llX ret=0x%016llX\n",
 		(UINT64)BootParameters->Size,
 		(UINT64)BootParameters->FirmwareParametersOffset,
 		(UINT64)BootParameters->ReturnArgumentsOffset);
 
-	SerialPrint(L"FW version=0x%016llX image=%p st=%p\n",
+	SerialPrint(L"FW version=0x%016llX size=0x%016llX image=%p st=%p\n",
 		(UINT64)Firmware->Version,
+		(UINT64)FirmwareDescriptorSize,
 		Firmware->ImageHandle,
 		(VOID*)Firmware->SystemTable);
 
-#if defined(_M_X64)
-	SerialPrint(L"FW cr3=0x%016llX gdtr=0x%016llX:0x%016llX idtr=0x%016llX:0x%016llX\n",
-		(UINT64)Firmware->ProcessorState.Cr3,
-		(UINT64)Firmware->ProcessorState.Gdtr.Base,
-		(UINT64)Firmware->ProcessorState.Gdtr.Limit,
-		(UINT64)Firmware->ProcessorState.Idtr.Base,
-		(UINT64)Firmware->ProcessorState.Idtr.Limit);
-
-	SerialPrint(L"FW cs=0x%016llX ds=0x%016llX es=0x%016llX fs=0x%016llX gs=0x%016llX ss=0x%016llX trans=0x%016llX\n",
-		(UINT64)Firmware->ProcessorState.Cs,
-		(UINT64)Firmware->ProcessorState.Ds,
-		(UINT64)Firmware->ProcessorState.Es,
-		(UINT64)Firmware->ProcessorState.Fs,
-		(UINT64)Firmware->ProcessorState.Gs,
-		(UINT64)Firmware->ProcessorState.Ss,
-		(UINT64)Firmware->ProcessorState.TranslationEnabled);
-#else
-	SerialPrint(L"FW IA32 descriptor size=0x%016llX\n",
-		(UINT64)((BootParameters->ReturnArgumentsOffset > BootParameters->FirmwareParametersOffset) ?
-			(BootParameters->ReturnArgumentsOffset - BootParameters->FirmwareParametersOffset) :
-			sizeof(*Firmware)));
-#endif
-
-	if (Firmware->Version < 2)
+	if (Firmware->Version < 1)
 	{
 		SerialPrint(L"Unsupported FW version %x\n", (UINT64)Firmware->Version);
 		Status = STATUS_NOT_SUPPORTED;
 		goto fail;
 	}
+
+#if defined(_M_X64)
+	if (Firmware->Version >= 3)
+	{
+		SerialPrint(L"FW cr3=0x%016llX gdtr=0x%016llX:0x%016llX idtr=0x%016llX:0x%016llX\n",
+			(UINT64)Firmware->ProcessorState.Cr3,
+			(UINT64)Firmware->ProcessorState.Gdtr.Base,
+			(UINT64)Firmware->ProcessorState.Gdtr.Limit,
+			(UINT64)Firmware->ProcessorState.Idtr.Base,
+			(UINT64)Firmware->ProcessorState.Idtr.Limit);
+
+		SerialPrint(L"FW cs=0x%016llX ds=0x%016llX es=0x%016llX fs=0x%016llX gs=0x%016llX ss=0x%016llX trans=0x%016llX\n",
+			(UINT64)Firmware->ProcessorState.Cs,
+			(UINT64)Firmware->ProcessorState.Ds,
+			(UINT64)Firmware->ProcessorState.Es,
+			(UINT64)Firmware->ProcessorState.Fs,
+			(UINT64)Firmware->ProcessorState.Gs,
+			(UINT64)Firmware->ProcessorState.Ss£¬
+			(UINT64)Firmware->ProcessorState.TranslationEnabled);
+	}
+	else if (Firmware->Version == 2)
+	{
+		SerialPrint(L"FW cr3=0x%016llX gdtr=0x%016llX:0x%016llX idtr=0x%016llX:0x%016llX\n",
+			(UINT64)Firmware->ProcessorState.Cr3,
+			(UINT64)Firmware->ProcessorState.Gdtr.Base,
+			(UINT64)Firmware->ProcessorState.Gdtr.Limit,
+			(UINT64)Firmware->ProcessorState.Idtr.Base,
+			(UINT64)Firmware->ProcessorState.Idtr.Limit);
+
+		SerialPrint(L"FW cs=0x%016llX ds=0x%016llX es=0x%016llX fs=0x%016llX gs=0x%016llX ss=0x%016llX\n",
+			(UINT64)Firmware->ProcessorState.Cs,
+			(UINT64)Firmware->ProcessorState.Ds,
+			(UINT64)Firmware->ProcessorState.Es,
+			(UINT64)Firmware->ProcessorState.Fs,
+			(UINT64)Firmware->ProcessorState.Gs,
+			(UINT64)Firmware->ProcessorState.Ss);
+	}
+	else
+	{
+		SerialPrint(L"FW cr3=0x%016llX\n",
+			(UINT64)Firmware->ProcessorState.Cr3);
+	}
+#else
+	SerialPrint(L"FW IA32 descriptor size=0x%016llX\n",
+		(UINT64)FirmwareDescriptorSize);
+#endif
 
 	Status = EfiInitializeContext(Firmware);
 	SerialPrint(L"EfiInitializeContext status=0x%08X\n", (UINT64)(UINT32)Status);
@@ -127,16 +156,25 @@ NTSTATUS BLAPI BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParamete
 		SerialPrint(L"Resolved target image path=%s\n", TargetImagePath);
 	}
 
-#if defined(_M_X64)
 	SerialPrint(L"Restoring FirmwareContext\n");
-	ArchRestoreFirmwareContext(&Firmware->ProcessorState, NULL);
-	SerialPrint(L"FirmwareContext restored\n");
+#if defined(_M_X64)
+	if (Firmware->Version >= 2)
+	{
+		ArchRestoreFirmwareContext(&Firmware->ProcessorState, NULL);
+		SerialPrint(L"FirmwareContext restored\n");
+	}
+	else
+	{
+		SerialPrint(L"Restoring Firmware CR3\n");
+		ArchRestoreFirmwarePageTable(Firmware->ProcessorState.Cr3);
+		SerialPrint(L"Firmware CR3 restored\n");
+	}
 #else
-	SerialPrint(L"Using current IA32 FirmwareContext\n");
 	ArchRestoreFirmwareContext(NULL, NULL);
 #endif
 
 	EfiPrint(L"EFILOADER: Copyright (c) 2026 A1ive <https://github.com/a1ive/efiloader>\n");
+	EfiPrint(L"Firmware Descriptor v%x\n", (UINT64)Firmware->Version);
 
 	Status = EfiStartApplication(TargetImagePath);
 

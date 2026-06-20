@@ -32,8 +32,10 @@
 ;   +0x22 UINT16 ES
 ;   +0x24 UINT16 FS
 ;   +0x26 UINT16 GS
-;   +0x28 UINT16 SS
-;   +0x2A UINT8  TranslationEnabled
+;   +0x28 UINT16 SS                  ; v2 descriptor ends here, total 0x46
+;   +0x2A UINT8  TranslationEnabled  ; v3 only, total 0x48 with padding
+; This routine intentionally restores only through SS so the same code path
+; works with v2 and v3 firmware descriptors.
 
 ArchRestoreFirmwareContext PROC
     mov     rax, qword ptr [rcx]
@@ -65,5 +67,15 @@ AfterCsReload:
     sti
     ret
 ArchRestoreFirmwareContext ENDP
+
+; VOID ArchRestoreFirmwarePageTable(UINT64 Cr3)
+;
+; Windows 7 x64 firmware descriptors expose the firmware CR3 but not the full
+; descriptor-table and segment state present in newer descriptors.
+ArchRestoreFirmwarePageTable PROC
+    mov     cr3, rcx
+    sti
+    ret
+ArchRestoreFirmwarePageTable ENDP
 
 END

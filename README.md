@@ -85,10 +85,6 @@ Example layout:
 Serial debug output goes to COM1 and is disabled by default. Define
 `ENABLE_SERIAL_DEBUG` when building to enable diagnostics.
 
-## Limitations
-
-Firmware descriptors with version 2 or newer are supported.
-
 ## Acknowledgements
 
 This project references work from:

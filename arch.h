@@ -23,3 +23,7 @@
 VOID ArchRestoreFirmwareContext(
 	const BL_FIRMWARE_PROCESSOR_STATE* State,
 	const BL_FIRMWARE_PROCESSOR_STATE* PreviousState);
+
+#if defined(_M_X64)
+VOID ArchRestoreFirmwarePageTable(UINT64 Cr3);
+#endif
