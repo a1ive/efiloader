@@ -1,6 +1,6 @@
 /*
  *  EFILOADER
- *  Copyright (C) 2026  a1ive <https://github.com/a1ive>
+ *  Copyright (C) 2026  a1ive <https://github.com/a1ive/efiloader>
  *
  *  EFILOADER is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 #include "serial.h"
 
-#ifdef ENABLE_SERIAL_DEBUG
+#if defined(ENABLE_SERIAL_DEBUG) && (defined(_M_IX86) || defined(_M_X64))
 
 #include <intrin.h>
 

@@ -1,6 +1,6 @@
 /*
  *  EFILOADER
- *  Copyright (C) 2026  a1ive <https://github.com/a1ive>
+ *  Copyright (C) 2026  a1ive <https://github.com/a1ive/efiloader>
  *
  *  EFILOADER is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,6 +26,17 @@
 #include "types.h"
 
 EFI_CONTEXT gContext;
+
+static VOID HaltProcessor(VOID)
+{
+#if defined(_M_IX86) || defined(_M_X64)
+	__halt();
+#else
+	for (;;)
+	{
+	}
+#endif
+}
 
 static VOID CopyString16(CHAR16* Destination, const CHAR16* Source, UINTN DestinationCharacters)
 {
@@ -89,6 +100,16 @@ NTSTATUS BLAPI BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParamete
 		goto fail;
 	}
 
+#if defined(_M_ARM64)
+	if (FirmwareDescriptorSize < sizeof(*Firmware))
+	{
+		SerialPrint(L"ARM64 FW descriptor too small: 0x%016llX\n",
+			(UINT64)FirmwareDescriptorSize);
+		Status = STATUS_NOT_SUPPORTED;
+		goto fail;
+	}
+#endif
+
 #if defined(_M_X64)
 	if (Firmware->Version >= 3)
 	{
@@ -105,7 +126,7 @@ NTSTATUS BLAPI BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParamete
 			(UINT64)Firmware->ProcessorState.Es,
 			(UINT64)Firmware->ProcessorState.Fs,
 			(UINT64)Firmware->ProcessorState.Gs,
-			(UINT64)Firmware->ProcessorState.Ss£¬
+			(UINT64)Firmware->ProcessorState.Ss,
 			(UINT64)Firmware->ProcessorState.TranslationEnabled);
 	}
 	else if (Firmware->Version == 2)
@@ -130,6 +151,19 @@ NTSTATUS BLAPI BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParamete
 		SerialPrint(L"FW cr3=0x%016llX\n",
 			(UINT64)Firmware->ProcessorState.Cr3);
 	}
+#elif defined(_M_ARM64)
+	SerialPrint(L"FW sctlr=0x%016llX vbar=0x%016llX tpidr=0x%016llX el=0x%016llX irq=0x%016llX\n",
+		(UINT64)Firmware->ProcessorState.Sctlr,
+		(UINT64)Firmware->ProcessorState.Vbar,
+		(UINT64)Firmware->ProcessorState.Tpidr,
+		(UINT64)Firmware->ProcessorState.CurrentEl,
+		(UINT64)Firmware->ProcessorState.InterruptsEnabled);
+
+	SerialPrint(L"FW ttbr0=0x%016llX ttbr1=0x%016llX tcr=0x%016llX mair=0x%016llX\n",
+		(UINT64)Firmware->ProcessorState.Ttbr0,
+		(UINT64)Firmware->ProcessorState.Ttbr1,
+		(UINT64)Firmware->ProcessorState.Tcr,
+		(UINT64)Firmware->ProcessorState.Mair);
 #else
 	SerialPrint(L"FW IA32 descriptor size=0x%016llX\n",
 		(UINT64)FirmwareDescriptorSize);
@@ -169,6 +203,8 @@ NTSTATUS BLAPI BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParamete
 		ArchRestoreFirmwarePageTable(Firmware->ProcessorState.Cr3);
 		SerialPrint(L"Firmware CR3 restored\n");
 	}
+#elif defined(_M_ARM64)
+	ArchRestoreFirmwareContext(&Firmware->ProcessorState, NULL);
 #else
 	ArchRestoreFirmwareContext(NULL, NULL);
 #endif
@@ -181,6 +217,6 @@ NTSTATUS BLAPI BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParamete
 fail:
 	for (;;)
 	{
-		__halt();
+		HaltProcessor();
 	}
 }

@@ -8,6 +8,7 @@
     <ClCompile Include="serial.c" />
     <MASM Include="arch_amd64.asm" />
     <MASM Include="arch_ia32.asm" />
+    <MARMASM Include="arch_arm64.asm" />
     <ClCompile Include="compiler.c" />
   </ItemGroup>
   <ItemGroup>

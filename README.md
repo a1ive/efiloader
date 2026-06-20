@@ -24,6 +24,16 @@ On x64, the restored firmware context includes:
 - `CS`
 - `DS`, `ES`, `FS`, `GS`, `SS`
 
+On ARM64, the restored firmware context includes:
+
+- `SCTLR_EL1`
+- `VBAR_EL1`
+- `TPIDR_EL1`
+- `TTBR0_EL1`, `TTBR1_EL1`
+- `TCR_EL1`
+- `MAIR_EL1`
+- DAIF IRQ state
+
 ## BCD Options
 
 The Boot Application entry should point to:
@@ -83,7 +93,7 @@ Example layout:
 ## Serial Debug
 
 Serial debug output goes to COM1 and is disabled by default. Define
-`ENABLE_SERIAL_DEBUG` when building to enable diagnostics.
+`ENABLE_SERIAL_DEBUG` when building x86/x64 images to enable diagnostics.
 
 ## Acknowledgements
 

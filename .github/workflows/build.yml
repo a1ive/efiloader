@@ -26,6 +26,8 @@ jobs:
             artifact-arch: x86
           - platform: x64
             artifact-arch: x64
+          - platform: ARM64
+            artifact-arch: arm64
 
     steps:
       - name: Run git checkout

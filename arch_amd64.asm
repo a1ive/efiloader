@@ -1,6 +1,6 @@
 ;
 ;  EFILOADER
-;  Copyright (C) 2026  a1ive <https://github.com/a1ive>
+;  Copyright (C) 2026  a1ive <https://github.com/a1ive/efiloader>
 ;
 ;  EFILOADER is free software: you can redistribute it and/or modify
 ;  it under the terms of the GNU General Public License as published by

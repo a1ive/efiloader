@@ -3,6 +3,7 @@
     <BuildType Name="Release" />
     <Platform Name="Win32" />
     <Platform Name="x64" />
+    <Platform Name="ARM64" />
   </Configurations>
   <Project Path="efiloader.vcxproj" Id="d4104c37-5bd0-4578-8808-9ee19ac5efd5" />
 </Solution>
