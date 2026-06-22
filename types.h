@@ -25,6 +25,18 @@
 #define TRUE 1
 #define FALSE 0
 
+#if defined(__GNUC__) && !defined(_MSC_VER)
+#ifndef __int32
+#define __int32 int
+#endif
+#ifndef __int64
+#define __int64 long long
+#endif
+#ifndef __stdcall
+#define __stdcall __attribute__((stdcall))
+#endif
+#endif
+
 typedef unsigned char UINT8;
 typedef unsigned short UINT16;
 typedef unsigned long UINT32;

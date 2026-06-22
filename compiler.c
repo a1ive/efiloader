@@ -18,7 +18,10 @@
 
 #include "compiler.h"
 
+#if defined(_MSC_VER)
 #pragma function(memcpy)
+
+#endif
 
 VOID* memcpy(VOID* Destination, const VOID* Source, UINTN Size)
 {
@@ -38,7 +41,10 @@ VOID* memcpy(VOID* Destination, const VOID* Source, UINTN Size)
 	return Destination;
 }
 
+#if defined(_MSC_VER)
 #pragma function(memcmp)
+
+#endif
 
 int memcmp(const VOID* First, const VOID* Second, UINTN Count)
 {
@@ -62,7 +68,10 @@ int memcmp(const VOID* First, const VOID* Second, UINTN Count)
 	return 0;
 }
 
+#if defined(_MSC_VER)
 #pragma function(memset)
+
+#endif
 
 VOID* memset(VOID* Destination, int Value, UINTN Count)
 {
@@ -79,7 +88,10 @@ VOID* memset(VOID* Destination, int Value, UINTN Count)
 	return Destination;
 }
 
+#if defined(_MSC_VER)
 #pragma function(wcslen)
+
+#endif
 
 UINTN wcslen(CHAR16* String)
 {
