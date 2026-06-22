@@ -34,6 +34,26 @@ On ARM64, the restored firmware context includes:
 - `MAIR_EL1`
 - DAIF IRQ state
 
+## Building on Linux with GCC/MinGW
+
+A GNU Make build is available for MinGW cross toolchains. Install `nasm` and
+the matching `*-w64-mingw32-gcc` package for the target architecture, then run:
+
+```sh
+make ARCH=x64
+make ARCH=ia32
+make ARCH=arm64
+```
+
+The default target is `ARCH=x64`, and outputs are written under `build/<arch>/`.
+You can override the cross-toolchain prefix when needed:
+
+```sh
+make ARCH=x64 CROSS_COMPILE=x86_64-w64-mingw32-
+```
+
+The Visual Studio project remains supported for MSVC builds.
+
 ## BCD Options
 
 The Boot Application entry should point to:

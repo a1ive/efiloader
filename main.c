@@ -16,7 +16,9 @@
  *  along with EFILOADER.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#if defined(_MSC_VER)
 #include <intrin.h>
+#endif
 
 #include "arch.h"
 #include "bootconfig.h"
@@ -29,8 +31,10 @@ EFI_CONTEXT gContext;
 
 static VOID HaltProcessor(VOID)
 {
-#if defined(_M_IX86) || defined(_M_X64)
+#if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
 	__halt();
+#elif defined(__GNUC__) && (defined(_M_IX86) || defined(_M_X64))
+	__asm__ __volatile__("hlt");
 #else
 	for (;;)
 	{
