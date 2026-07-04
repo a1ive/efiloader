@@ -1,0 +1,102 @@
+/*
+ *  EFILOADER
+ *  Copyright (C) 2026  a1ive <https://github.com/a1ive/efiloader>
+ *
+ *  EFILOADER is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  EFILOADER is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with EFILOADER.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#pragma once
+
+#include "types.h"
+
+#define IMAGE_SUBSYSTEM_UNKNOWN 0
+#define IMAGE_SUBSYSTEM_NATIVE 1
+#define IMAGE_SUBSYSTEM_WINDOWS_GUI 2
+#define IMAGE_SUBSYSTEM_WINDOWS_CUI 3
+#define IMAGE_SUBSYSTEM_OS2_CUI 5
+#define IMAGE_SUBSYSTEM_POSIX_CUI 7
+#define IMAGE_SUBSYSTEM_NATIVE_WINDOWS 8
+#define IMAGE_SUBSYSTEM_WINDOWS_CE_GUI 9
+#define IMAGE_SUBSYSTEM_EFI_APPLICATION 10
+#define IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER 11
+#define IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER 12
+#define IMAGE_SUBSYSTEM_EFI_ROM 13
+#define IMAGE_SUBSYSTEM_XBOX 14
+#define IMAGE_SUBSYSTEM_WINDOWS_BOOT_APPLICATION 16
+#define IMAGE_SUBSYSTEM_XBOX_CODE_CATALOG 17
+
+#define IMAGE_DIRECTORY_ENTRY_EXPORT 0
+#define IMAGE_DIRECTORY_ENTRY_IMPORT 1
+#define IMAGE_DIRECTORY_ENTRY_RESOURCE 2
+#define IMAGE_DIRECTORY_ENTRY_EXCEPTION 3
+#define IMAGE_DIRECTORY_ENTRY_SECURITY 4
+#define IMAGE_DIRECTORY_ENTRY_BASERELOC 5
+#define IMAGE_DIRECTORY_ENTRY_DEBUG 6
+#define IMAGE_DIRECTORY_ENTRY_ARCHITECTURE 7
+#define IMAGE_DIRECTORY_ENTRY_GLOBALPTR 8
+#define IMAGE_DIRECTORY_ENTRY_TLS 9
+#define IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG 10
+#define IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT 11
+#define IMAGE_DIRECTORY_ENTRY_IAT 12
+#define IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT 13
+#define IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR 14
+
+#define IMAGE_RESOURCE_NAME_IS_STRING 0x80000000UL
+#define IMAGE_RESOURCE_DATA_IS_DIRECTORY 0x80000000UL
+
+#define IMAGE_RESOURCE_OFFSET_MASK 0x7FFFFFFFUL
+
+#define PE32_SUBSYSTEM_OFFSET 68
+#define PE32_NUMBER_OF_RVA_AND_SIZES_OFFSET 92
+#define PE32_DATA_DIRECTORY_OFFSET 96
+#define PE32_PLUS_SUBSYSTEM_OFFSET 68
+#define PE32_PLUS_NUMBER_OF_RVA_AND_SIZES_OFFSET 108
+#define PE32_PLUS_DATA_DIRECTORY_OFFSET 112
+
+typedef struct _IMAGE_RESOURCE_DIRECTORY_MIN
+{
+	UINT32 Characteristics;
+	UINT32 TimeDateStamp;
+	UINT16 MajorVersion;
+	UINT16 MinorVersion;
+	UINT16 NumberOfNamedEntries;
+	UINT16 NumberOfIdEntries;
+} IMAGE_RESOURCE_DIRECTORY_MIN;
+
+typedef struct _IMAGE_RESOURCE_DIRECTORY_ENTRY_MIN
+{
+	UINT32 Name;
+	UINT32 OffsetToData;
+} IMAGE_RESOURCE_DIRECTORY_ENTRY_MIN;
+
+typedef struct _IMAGE_RESOURCE_DATA_ENTRY_MIN
+{
+	UINT32 OffsetToData;
+	UINT32 Size;
+	UINT32 CodePage;
+	UINT32 Reserved;
+} IMAGE_RESOURCE_DATA_ENTRY_MIN;
+
+NTSTATUS PeGetImageSubsystem(
+	const VOID* ImageBase,
+	UINTN ImageSize,
+	UINT16* Subsystem);
+
+NTSTATUS PeFindResData(
+	const VOID* ImageBase,
+	UINTN ImageSize,
+	UINT16 TypeId,
+	UINT16 NameId,
+	const VOID** ResourceData,
+	UINT32* ResourceSize);

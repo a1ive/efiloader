@@ -1,0 +1,11 @@
+#include "resource.h"
+
+#if defined(EFI_PAYLOAD_AMD64)
+IDR_EFI_PAYLOAD RCDATA "payloads\\payload_x64.txt"
+#elif defined(EFI_PAYLOAD_IA32)
+IDR_EFI_PAYLOAD RCDATA "payloads\\payload_ia32.txt"
+#elif defined(EFI_PAYLOAD_ARM64)
+IDR_EFI_PAYLOAD RCDATA "payloads\\payload_aa64.txt"
+#else
+#error No EFI payload architecture was selected.
+#endif

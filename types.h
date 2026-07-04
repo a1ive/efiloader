@@ -322,6 +322,26 @@ typedef EFI_STATUS (*EFI_SET_WATCHDOG_TIMER)(
 	UINTN DataSize,
 	CHAR16* WatchdogData);
 
+typedef EFI_STATUS (*EFI_CONNECT_CONTROLLER)(
+	EFI_HANDLE ControllerHandle,
+	EFI_HANDLE* DriverImageHandle,
+	EFI_DEVICE_PATH_PROTOCOL* RemainingDevicePath,
+	BOOLEAN Recursive);
+
+typedef enum _EFI_LOCATE_SEARCH_TYPE
+{
+	AllHandles,
+	ByRegisterNotify,
+	ByProtocol
+} EFI_LOCATE_SEARCH_TYPE;
+
+typedef EFI_STATUS (*EFI_LOCATE_HANDLE_BUFFER)(
+	EFI_LOCATE_SEARCH_TYPE SearchType,
+	EFI_GUID* Protocol,
+	VOID* SearchKey,
+	UINTN* NoHandles,
+	EFI_HANDLE** Buffer);
+
 typedef EFI_STATUS (*EFI_IMAGE_UNLOAD)(
 	EFI_HANDLE ImageHandle);
 
@@ -375,6 +395,13 @@ typedef struct _EFI_BOOT_SERVICES
 	VOID* GetNextMonotonicCount;
 	VOID* Stall;
 	EFI_SET_WATCHDOG_TIMER SetWatchdogTimer;
+	EFI_CONNECT_CONTROLLER ConnectController;
+	VOID* DisconnectController;
+	VOID* OpenProtocol;
+	VOID* CloseProtocol;
+	VOID* OpenProtocolInformation;
+	VOID* ProtocolsPerHandle;
+	EFI_LOCATE_HANDLE_BUFFER LocateHandleBuffer;
 } EFI_BOOT_SERVICES;
 
 struct _EFI_SYSTEM_TABLE

@@ -32,4 +32,8 @@ typedef struct _EFI_CONTEXT
 extern EFI_CONTEXT gContext;
 
 NTSTATUS EfiInitializeContext(BL_FIRMWARE_DESCRIPTOR* Firmware);
-NTSTATUS EfiStartApplication(CHAR16* ImagePath);
+NTSTATUS EfiStartApplication(
+	CHAR16* ImagePath,
+	const VOID* ImageBuffer,
+	UINTN ImageSize,
+	EFI_HANDLE* ImageHandle);

@@ -21,6 +21,7 @@
 #include "arch.h"
 #include "bootconfig.h"
 #include "loader.h"
+#include "payload.h"
 #include "print.h"
 #include "serial.h"
 #include "types.h"
@@ -64,7 +65,9 @@ NTSTATUS BLAPI BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParamete
 	CHAR16 TargetImagePath[MAX_PATH] = DEFAULT_IMAGE_PATH;
 	BL_LOADED_APPLICATION_ENTRY LoadedApplicationEntry;
 	BL_FIRMWARE_DESCRIPTOR* Firmware = NULL;
+	EMBEDDED_PAYLOAD EmbeddedPayload;
 	UINTN FirmwareDescriptorSize;
+	NTSTATUS PayloadStatus;
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
 	SerialInitialize();
@@ -177,6 +180,14 @@ NTSTATUS BLAPI BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParamete
 		goto fail;
 	}
 
+	PayloadStatus = PayloadLocate((VOID*)(UINTN)BootParameters->ImageBase, BootParameters->ImageSize, &EmbeddedPayload);
+	SerialPrint(L"PayloadLocate status=0x%08X data=%p size=0x%016llX subsystem=0x%04X type=0x%x\n",
+		(UINT64)(UINT32)PayloadStatus,
+		(VOID*)EmbeddedPayload.Data,
+		(UINT64)EmbeddedPayload.Size,
+		(UINT64)EmbeddedPayload.Subsystem,
+		(UINT64)EmbeddedPayload.Type);
+
 	Status = BlGetLoadedApplicationEntry(BootParameters, &LoadedApplicationEntry);
 	SerialPrint(L"BlGetLoadedApplicationEntry status=0x%08X\n", (UINT64)(UINT32)Status);
 	if (Status == STATUS_SUCCESS)
@@ -212,7 +223,12 @@ NTSTATUS BLAPI BlApplicationEntry(BOOT_APPLICATION_PARAMETER_BLOCK* BootParamete
 	EfiPrint(L"EFILOADER: Copyright (c) 2026 A1ive <https://github.com/a1ive/efiloader>\n");
 	EfiPrint(L"Firmware Descriptor v%x\n", (UINT64)Firmware->Version);
 
-	Status = EfiStartApplication(TargetImagePath);
+	if (PayloadStatus == STATUS_SUCCESS)
+	{
+		PayloadBoot(&EmbeddedPayload);
+	}
+
+	Status = EfiStartApplication(TargetImagePath, NULL, 0, NULL);
 
 fail:
 	for (;;)

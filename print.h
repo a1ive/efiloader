@@ -27,3 +27,8 @@ VOID SerialPrint(const CHAR16* Format, ...);
 #endif
 
 EFI_STATUS EfiPrint(const CHAR16* Format, ...);
+
+static inline VOID PrintEfiStatus(const CHAR16* Name, EFI_STATUS Status)
+{
+	SerialPrint(L"%s status=0x%016llX\n", Name, (UINT64)Status);
+}

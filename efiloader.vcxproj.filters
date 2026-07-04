@@ -4,25 +4,38 @@
     <ClCompile Include="bootconfig.c" />
     <ClCompile Include="loader.c" />
     <ClCompile Include="main.c" />
+    <ClCompile Include="payload.c" />
+    <ClCompile Include="pe.c" />
     <ClCompile Include="print.c" />
     <ClCompile Include="serial.c" />
     <MASM Include="arch_amd64.asm" />
     <MASM Include="arch_ia32.asm" />
     <MARMASM Include="arch_arm64.asm" />
     <ClCompile Include="compiler.c" />
+    <ClCompile Include="mm.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="arch.h" />
     <ClInclude Include="bootconfig.h" />
     <ClInclude Include="loader.h" />
+    <ClInclude Include="payload.h" />
+    <ClInclude Include="pe.h" />
     <ClInclude Include="print.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="serial.h" />
     <ClInclude Include="types.h" />
     <ClInclude Include="compiler.h" />
+    <ClInclude Include="mm.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="efiloader.rc" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="GitHub">
       <UniqueIdentifier>{01993920-b5f1-4361-81c9-cdd70de695a9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="payloads">
+      <UniqueIdentifier>{2981cbe4-c402-4893-967e-fa6de4342d7c}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -31,6 +44,16 @@
     </None>
     <None Include=".github\workflows\build.yml">
       <Filter>GitHub</Filter>
+    </None>
+    <None Include=".github\dependabot.yml" />
+    <None Include="payloads\payload_aa64.txt">
+      <Filter>payloads</Filter>
+    </None>
+    <None Include="payloads\payload_ia32.txt">
+      <Filter>payloads</Filter>
+    </None>
+    <None Include="payloads\payload_x64.txt">
+      <Filter>payloads</Filter>
     </None>
   </ItemGroup>
 </Project>

@@ -1,0 +1,8 @@
+EFILOADER
+Copyright (c) 2026 A1ive <https://github.com/a1ive/efiloader>
+ARM64 Build
+
+This file is the default placeholder for the optional embedded EFI
+payload. It is compiled into efiloader as an RCDATA resource. Replace its
+contents with a valid EFI application or driver image to have efiloader
+load and start that image after restoring the firmware execution context.

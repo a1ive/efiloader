@@ -1,0 +1,45 @@
+/*
+ *  EFILOADER
+ *  Copyright (C) 2026  a1ive <https://github.com/a1ive/efiloader>
+ *
+ *  EFILOADER is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  EFILOADER is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with EFILOADER.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#pragma once
+
+#include "types.h"
+
+typedef enum _EMBEDDED_PAYLOAD_TYPE
+{
+	EmbeddedPayloadNone,
+	EmbeddedPayloadApplication,
+	EmbeddedPayloadDriver,
+	EmbeddedPayloadUnsupported
+} EMBEDDED_PAYLOAD_TYPE;
+
+typedef struct _EMBEDDED_PAYLOAD
+{
+	const VOID* Data;
+	UINTN Size;
+	UINT16 Subsystem;
+	EMBEDDED_PAYLOAD_TYPE Type;
+} EMBEDDED_PAYLOAD;
+
+NTSTATUS PayloadLocate(
+	const VOID* LoaderImageBase,
+	UINTN LoaderImageSize,
+	EMBEDDED_PAYLOAD* Payload);
+
+VOID PayloadBoot(
+	const EMBEDDED_PAYLOAD* Payload);

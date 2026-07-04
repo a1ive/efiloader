@@ -97,7 +97,13 @@
       <ExceptionHandling>false</ExceptionHandling>
       <CompileAs>CompileAsC</CompileAs>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <OmitFramePointers>false</OmitFramePointers>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>EFI_PAYLOAD_AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EntryPointSymbol>BlApplicationEntry</EntryPointSymbol>
@@ -128,7 +134,12 @@
       <ExceptionHandling>false</ExceptionHandling>
       <CompileAs>CompileAsC</CompileAs>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>EFI_PAYLOAD_IA32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EntryPointSymbol>BlApplicationEntry</EntryPointSymbol>
@@ -159,7 +170,12 @@
       <ExceptionHandling>false</ExceptionHandling>
       <CompileAs>CompileAsC</CompileAs>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>EFI_PAYLOAD_ARM64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EntryPointSymbol>BlApplicationEntry</EntryPointSymbol>
@@ -179,6 +195,9 @@
     <ClCompile Include="compiler.c" />
     <ClCompile Include="loader.c" />
     <ClCompile Include="main.c" />
+    <ClCompile Include="mm.c" />
+    <ClCompile Include="payload.c" />
+    <ClCompile Include="pe.c" />
     <ClCompile Include="print.c" />
     <ClCompile Include="serial.c" />
     <MASM Include="arch_amd64.asm">
@@ -199,13 +218,23 @@
     <ClInclude Include="bootconfig.h" />
     <ClInclude Include="compiler.h" />
     <ClInclude Include="loader.h" />
+    <ClInclude Include="mm.h" />
+    <ClInclude Include="payload.h" />
+    <ClInclude Include="pe.h" />
     <ClInclude Include="print.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="serial.h" />
     <ClInclude Include="types.h" />
   </ItemGroup>
   <ItemGroup>
+    <ResourceCompile Include="efiloader.rc" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include=".github\dependabot.yml" />
     <None Include=".github\workflows\build.yml" />
+    <None Include="payloads\payload_aa64.txt" />
+    <None Include="payloads\payload_ia32.txt" />
+    <None Include="payloads\payload_x64.txt" />
     <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
