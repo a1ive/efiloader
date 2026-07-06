@@ -12,7 +12,14 @@
     <MASM Include="arch_ia32.asm" />
     <MARMASM Include="arch_arm64.asm" />
     <ClCompile Include="compiler.c" />
+    <ClCompile Include="efidisk.c" />
+    <ClCompile Include="efiguid.c" />
+    <ClCompile Include="efipath.c" />
+    <ClCompile Include="fscommon.c" />
+    <ClCompile Include="iso9660.c" />
     <ClCompile Include="mm.c" />
+    <ClCompile Include="optical.c" />
+    <ClCompile Include="udf.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="arch.h" />
@@ -25,7 +32,14 @@
     <ClInclude Include="serial.h" />
     <ClInclude Include="types.h" />
     <ClInclude Include="compiler.h" />
+    <ClInclude Include="efidisk.h" />
+    <ClInclude Include="efiguid.h" />
+    <ClInclude Include="efipath.h" />
+    <ClInclude Include="fscommon.h" />
+    <ClInclude Include="iso9660.h" />
     <ClInclude Include="mm.h" />
+    <ClInclude Include="optical.h" />
+    <ClInclude Include="udf.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="efiloader.rc" />

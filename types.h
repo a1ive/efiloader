@@ -48,6 +48,7 @@ typedef void VOID;
 typedef VOID* EFI_HANDLE;
 typedef UINTN EFI_STATUS;
 typedef UINT64 EFI_PHYSICAL_ADDRESS;
+typedef UINT64 EFI_LBA;
 typedef UINT32 EFI_MEMORY_TYPE;
 
 #ifndef MAX_PATH
@@ -190,6 +191,7 @@ typedef struct _EFI_FILEPATH_DEVICE_PATH
 #define END_ENTIRE_DEVICE_PATH_SUBTYPE 0xFF
 
 typedef struct _EFI_PXE_BASE_CODE_PROTOCOL EFI_PXE_BASE_CODE_PROTOCOL;
+typedef struct _EFI_BLOCK_IO_PROTOCOL EFI_BLOCK_IO_PROTOCOL;
 
 typedef struct _EFI_PXE_BASE_CODE_DHCPV4_PACKET
 {
@@ -297,6 +299,53 @@ struct _EFI_PXE_BASE_CODE_PROTOCOL
 	VOID* SetStationIp;
 	VOID* SetPackets;
 	EFI_PXE_BASE_CODE_MODE* Mode;
+};
+
+typedef struct _EFI_BLOCK_IO_MEDIA
+{
+	UINT32 MediaId;
+	BOOLEAN RemovableMedia;
+	BOOLEAN MediaPresent;
+	BOOLEAN LogicalPartition;
+	BOOLEAN ReadOnly;
+	BOOLEAN WriteCaching;
+	UINT32 BlockSize;
+	UINT32 IoAlign;
+	EFI_LBA LastBlock;
+	EFI_LBA LowestAlignedLba;
+	UINT32 LogicalBlocksPerPhysicalBlock;
+	UINT32 OptimalTransferLengthGranularity;
+} EFI_BLOCK_IO_MEDIA;
+
+typedef EFI_STATUS(*EFI_BLOCK_RESET)(
+	EFI_BLOCK_IO_PROTOCOL* This,
+	BOOLEAN ExtendedVerification);
+
+typedef EFI_STATUS(*EFI_BLOCK_READ)(
+	EFI_BLOCK_IO_PROTOCOL* This,
+	UINT32 MediaId,
+	EFI_LBA Lba,
+	UINTN BufferSize,
+	VOID* Buffer);
+
+typedef EFI_STATUS(*EFI_BLOCK_WRITE)(
+	EFI_BLOCK_IO_PROTOCOL* This,
+	UINT32 MediaId,
+	EFI_LBA Lba,
+	UINTN BufferSize,
+	VOID* Buffer);
+
+typedef EFI_STATUS(*EFI_BLOCK_FLUSH)(
+	EFI_BLOCK_IO_PROTOCOL* This);
+
+struct _EFI_BLOCK_IO_PROTOCOL
+{
+	UINT64 Revision;
+	EFI_BLOCK_IO_MEDIA* Media;
+	EFI_BLOCK_RESET Reset;
+	EFI_BLOCK_READ ReadBlocks;
+	EFI_BLOCK_WRITE WriteBlocks;
+	EFI_BLOCK_FLUSH FlushBlocks;
 };
 
 C_ASSERT(sizeof(EFI_PXE_BASE_CODE_DHCPV4_PACKET) == 296);

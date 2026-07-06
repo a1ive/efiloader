@@ -1,7 +1,7 @@
 
 set bcd=/store efi\microsoft\boot\bcd
 
-set guid={19260817-6666-8888-abcd-000000000000}
+set guid={14530529-1111-2222-abcd-12345678abcd}
 
 bcdedit %bcd% /set {bootmgr} timeout 10
 bcdedit %bcd% /set {bootmgr} displaybootmenu true

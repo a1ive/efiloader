@@ -34,6 +34,23 @@ On ARM64, the restored firmware context includes:
 - `MAIR_EL1`
 - DAIF IRQ state
 
+## Embedded Payload
+
+`efiloader` can embed one EFI application or driver as an `RCDATA` resource.
+Use Resource Hacker or a similar PE resource editor to replace the placeholder
+in an existing `efiloader.efi`:
+
+1. Open `efiloader.efi` in the resource editor.
+2. Locate the `RCDATA` resource with ID `101`.
+3. Replace that resource with the desired EFI application or driver.
+4. Save the modified image as a new `efiloader.efi`.
+
+After restoring the firmware execution context, `efiloader` loads the embedded
+image directly from memory and starts it **before** the target selected by BCD
+`loadoptions`.
+
+The original resource is only a text placeholder and is ignored at runtime.
+
 ## BCD Options
 
 The Boot Application entry should point to:
@@ -75,9 +92,10 @@ If `loadoptions` is absent or invalid, the fallback target is:
 
 ## ISO Boot
 
-When booting from optical media, `efiloader.efi` must be placed in the ISO
-filesystem. The EFI application launched by `efiloader`, such as `shell.efi`,
-must be placed inside the El Torito UEFI image.
+When booting from optical media, `efiloader` first asks firmware to load the
+target from the El Torito UEFI image. If that fails, it reads the target
+directly from the ISO9660 or UDF filesystem. The launched EFI
+application therefore does not need to be inside the El Torito UEFI image.
 
 Example layout:
 
@@ -86,9 +104,12 @@ Example layout:
 [ISO]\efiloader.efi
 [ISO]\boot\boot.sdi
 [ISO]\EFI\microsoft\boot\bcd
-[IMG]\shell.efi
+[ISO]\shell.efi
 [IMG]\EFI\BOOT\BOOTX64.EFI
 ```
+
+UDF media using physical (type 1) partition maps is supported. UDF metadata
+partitions are not currently resolved.
 
 ## Serial Debug
 
@@ -102,3 +123,4 @@ This project references work from:
 - https://github.com/imbushuo/boot-shim
 - https://github.com/reactos/reactos
 - https://github.com/Mattiwatti/EfiGuard
+- https://git.savannah.gnu.org/cgit/grub.git

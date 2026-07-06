@@ -193,13 +193,20 @@
   <ItemGroup>
     <ClCompile Include="bootconfig.c" />
     <ClCompile Include="compiler.c" />
+    <ClCompile Include="efidisk.c" />
+    <ClCompile Include="efiguid.c" />
+    <ClCompile Include="efipath.c" />
+    <ClCompile Include="fscommon.c" />
+    <ClCompile Include="iso9660.c" />
     <ClCompile Include="loader.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="mm.c" />
+    <ClCompile Include="optical.c" />
     <ClCompile Include="payload.c" />
     <ClCompile Include="pe.c" />
     <ClCompile Include="print.c" />
     <ClCompile Include="serial.c" />
+    <ClCompile Include="udf.c" />
     <MASM Include="arch_amd64.asm">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
@@ -217,14 +224,21 @@
     <ClInclude Include="arch.h" />
     <ClInclude Include="bootconfig.h" />
     <ClInclude Include="compiler.h" />
+    <ClInclude Include="efidisk.h" />
+    <ClInclude Include="efiguid.h" />
+    <ClInclude Include="efipath.h" />
+    <ClInclude Include="fscommon.h" />
+    <ClInclude Include="iso9660.h" />
     <ClInclude Include="loader.h" />
     <ClInclude Include="mm.h" />
+    <ClInclude Include="optical.h" />
     <ClInclude Include="payload.h" />
     <ClInclude Include="pe.h" />
     <ClInclude Include="print.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="serial.h" />
     <ClInclude Include="types.h" />
+    <ClInclude Include="udf.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="efiloader.rc" />
