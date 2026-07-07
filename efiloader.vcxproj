@@ -110,7 +110,7 @@
       <DataExecutionPrevention>false</DataExecutionPrevention>
       <RandomizedBaseAddress />
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
-      <AdditionalOptions>/SUBSYSTEM:BOOT_APPLICATION /BASE:0x18000000 /IGNORE:4281 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/SUBSYSTEM:BOOT_APPLICATION %(AdditionalOptions)</AdditionalOptions>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
       <AdditionalDependencies />
     </Link>
@@ -146,7 +146,7 @@
       <DataExecutionPrevention>false</DataExecutionPrevention>
       <RandomizedBaseAddress />
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
-      <AdditionalOptions>/SUBSYSTEM:BOOT_APPLICATION /BASE:0x18000000 /SAFESEH:NO /IGNORE:4281 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/SUBSYSTEM:BOOT_APPLICATION /SAFESEH:NO %(AdditionalOptions)</AdditionalOptions>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
       <AdditionalDependencies />
     </Link>
@@ -182,7 +182,7 @@
       <DataExecutionPrevention>false</DataExecutionPrevention>
       <RandomizedBaseAddress />
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
-      <AdditionalOptions>/SUBSYSTEM:BOOT_APPLICATION /BASE:0x180000000 /IGNORE:4281 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/SUBSYSTEM:BOOT_APPLICATION %(AdditionalOptions)</AdditionalOptions>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
       <AdditionalDependencies />
     </Link>
